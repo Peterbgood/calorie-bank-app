@@ -1,30 +1,24 @@
 import React from 'react';
-import CalorieTracker from './CalorieTracker'; // Import your new component
+import CalorieTracker from './CalorieTracker'; // Matches the file name exactly
 
 function App() {
   return (
     <div className="bg-light min-vh-100">
-      {/* Simple Header */}
       <nav className="navbar navbar-dark bg-primary shadow-sm mb-4">
         <div className="container">
           <span className="navbar-brand fw-bold">
-            <i className="bi bi-activity me-2"></i> Health & Wealth Portal
+            <i className="bi bi-fire me-2"></i> Calorie Tracker Pro
           </span>
         </div>
       </nav>
 
       <div className="container">
-        <div className="row">
-          <div className="col-12">
-            {/* This is where your tracker lives */}
+        <div className="row justify-content-center">
+          <div className="col-md-10 col-lg-8">
             <CalorieTracker />
           </div>
         </div>
       </div>
-      
-      <footer className="text-center py-4 text-muted">
-        <small>© 2026 My Portfolio Project</small>
-      </footer>
     </div>
   );
 }
