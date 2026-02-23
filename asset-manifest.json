@@ -1,17 +1,17 @@
 {
   "files": {
     "main.css": "/calorie-bank-app/static/css/main.9e7c4a86.css",
-    "main.js": "/calorie-bank-app/static/js/main.0fe3f883.js",
+    "main.js": "/calorie-bank-app/static/js/main.1f851fde.js",
     "static/js/453.36fc4f18.chunk.js": "/calorie-bank-app/static/js/453.36fc4f18.chunk.js",
     "static/media/bootstrap-icons.woff?": "/calorie-bank-app/static/media/bootstrap-icons.1295669cd4e305c97f2c.woff",
     "static/media/bootstrap-icons.woff2?": "/calorie-bank-app/static/media/bootstrap-icons.92ea18a81d737146ff04.woff2",
     "index.html": "/calorie-bank-app/index.html",
     "main.9e7c4a86.css.map": "/calorie-bank-app/static/css/main.9e7c4a86.css.map",
-    "main.0fe3f883.js.map": "/calorie-bank-app/static/js/main.0fe3f883.js.map",
+    "main.1f851fde.js.map": "/calorie-bank-app/static/js/main.1f851fde.js.map",
     "453.36fc4f18.chunk.js.map": "/calorie-bank-app/static/js/453.36fc4f18.chunk.js.map"
   },
   "entrypoints": [
     "static/css/main.9e7c4a86.css",
-    "static/js/main.0fe3f883.js"
+    "static/js/main.1f851fde.js"
   ]
 }
