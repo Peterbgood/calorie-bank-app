@@ -19,6 +19,11 @@ function CalorieTracker() {
   const API_URL = "https://script.google.com/macros/s/AKfycbwKE4zeTe2ASxwqSH_Uw6xJX67yAFPy0aiRKnUXDMDnzXpDkWpxfGZb7KTBZVNLov0/exec";
   const DAILY_GOAL = 1700;
 
+  // Prevent iPhone Zoom Style
+  const inputStyle = {
+    fontSize: '16px', // Minimum size to prevent iOS zoom
+  };
+
   useEffect(() => { fetchLogs(); }, []);
 
   const fetchLogs = () => {
@@ -53,7 +58,12 @@ function CalorieTracker() {
     if (!name || !cals) return;
     const foodName = name.trim();
     const foodCals = Number(cals);
-    const existingEntry = logs.find(l => l.date === selectedDate && l.food.toLowerCase() === foodName.toLowerCase() && l.type === 'food');
+    
+    const existingEntry = logs.find(l => 
+      l.date === selectedDate && 
+      l.food.toLowerCase() === foodName.toLowerCase() && 
+      l.type === 'food'
+    );
 
     let entry;
     if (existingEntry && !editingId) {
@@ -96,10 +106,9 @@ function CalorieTracker() {
       return logs.filter(l => l.date === dStr && l.type === 'food').reduce((s, c) => s + c.calories, 0);
     });
     
-    // Calculate Average (only counting days that have passed in the week)
     const currentDayIdx = new Date().getDay() === 0 ? 6 : new Date().getDay() - 1;
     const daysElapsed = weeklyCals.slice(0, currentDayIdx + 1);
-    const avg = daysElapsed.reduce((a, b) => a + b, 0) / daysElapsed.length;
+    const avg = daysElapsed.reduce((a, b) => a + b, 0) / (daysElapsed.length || 1);
 
     return { data: weeklyCals, avg: Math.round(avg) };
   };
@@ -111,7 +120,9 @@ function CalorieTracker() {
     .sort((a, b) => {
       const aC = a.food.toLowerCase().includes('coffee');
       const bC = b.food.toLowerCase().includes('coffee');
-      return aC === bC ? a.food.localeCompare(b.food) : aC ? -1 : 1;
+      if (aC && !bC) return -1;
+      if (!aC && bC) return 1;
+      return a.id.localeCompare(b.id);
     });
 
   const usedToday = dailyLogs.reduce((a, c) => a + c.calories, 0);
@@ -128,7 +139,7 @@ function CalorieTracker() {
       {/* 1. PROGRESS BAR */}
       <div className="card shadow-sm mb-3 border-0 p-3">
         <div className="d-flex justify-content-between mb-2 fw-bold align-items-center text-dark">
-          <input type="date" className="form-control form-control-sm w-auto" value={selectedDate} onChange={(e) => setSelectedDate(e.target.value)} />
+          <input type="date" className="form-control form-control-sm w-auto" style={inputStyle} value={selectedDate} onChange={(e) => setSelectedDate(e.target.value)} />
           <div className="text-end" style={{lineHeight: '1'}}>
              <span className="small">{usedToday} / {DAILY_GOAL} kcal</span><br/>
              <button className="btn btn-link btn-sm p-0 text-decoration-none" style={{fontSize: '0.7rem'}} onClick={fetchLogs} disabled={isSyncing}>
@@ -157,7 +168,7 @@ function CalorieTracker() {
                 <div key={l.id} className="list-group-item d-flex justify-content-between align-items-center py-2">
                   <div style={{lineHeight: '1.1'}}><strong>{l.food}</strong><br/><small className="text-muted">{l.calories} kcal</small></div>
                   <div className="d-flex">
-                    <button onClick={() => {setEditingId(l.id); setFood(l.food); setCalories(l.calories);}} className="btn btn-sm text-info px-2">Edit</button>
+                    <button onClick={() => {setEditingId(l.id); setFood(l.food); setCalories(l.calories); window.scrollTo(0, 500);}} className="btn btn-sm text-info px-2">Edit</button>
                     <button onClick={() => removeEntry(l.id)} className="btn btn-sm text-danger px-2">Del</button>
                   </div>
                 </div>
@@ -182,12 +193,25 @@ function CalorieTracker() {
           ))}
         </div>
 
-        {/* 4. MANUAL ENTRY */}
+        {/* 4. MANUAL ENTRY - FONT SIZE FIX HERE */}
         <div className="card shadow-sm p-3 border-0 bg-light">
           <h6 className="fw-bold mb-2 small text-uppercase text-muted">{editingId ? '📝 Update' : '🥗 Manual Entry'}</h6>
           <div className="d-flex gap-2 mb-2">
-              <input className="form-control form-control-sm" placeholder="Food Name" value={food} onChange={(e) => setFood(e.target.value)} />
-              <input className="form-control form-control-sm w-25" type="number" placeholder="kcal" value={calories} onChange={(e) => setCalories(e.target.value)} />
+              <input 
+                className="form-control" 
+                style={inputStyle} 
+                placeholder="Food Name" 
+                value={food} 
+                onChange={(e) => setFood(e.target.value)} 
+              />
+              <input 
+                className="form-control w-25" 
+                style={inputStyle} 
+                type="number" 
+                placeholder="kcal" 
+                value={calories} 
+                onChange={(e) => setCalories(e.target.value)} 
+              />
           </div>
           <div className="d-flex gap-2">
               <button className={`btn btn-sm w-100 ${editingId ? 'btn-warning' : 'btn-primary'}`} onClick={() => handleAddFood(food, calories)}>
@@ -213,11 +237,20 @@ function CalorieTracker() {
           </div>
         </div>
 
-        {/* 6. WEIGHT LOG */}
+        {/* 6. WEIGHT LOG - FONT SIZE FIX HERE */}
         <div className="card shadow-sm p-3 border-0">
           <h6 className="fw-bold mb-2 small text-uppercase text-muted">⚖️ Log Weight</h6>
           <form onSubmit={logWeight} className="d-flex gap-2">
-              <input className="form-control form-control-sm" type="number" step="0.1" value={weight} onChange={(e) => setWeight(e.target.value)} placeholder="Enter lbs" required />
+              <input 
+                className="form-control" 
+                style={inputStyle} 
+                type="number" 
+                step="0.1" 
+                value={weight} 
+                onChange={(e) => setWeight(e.target.value)} 
+                placeholder="Enter lbs" 
+                required 
+              />
               <button className="btn btn-sm btn-dark px-4">Log</button>
           </form>
         </div>
