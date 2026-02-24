@@ -6,59 +6,125 @@ import FOOD_PRESETS from './presets.json';
 ChartJS.register(CategoryScale, LinearScale, BarElement, LineElement, PointElement, Title, Tooltip, Legend);
 
 function CalorieTracker() {
-  // Fix for Eastern Time: Use local date string (YYYY-MM-DD)
   const getLocalDate = () => new Date().toLocaleDateString('en-CA');
   
   const [logs, setLogs] = useState([]);
+  const [selectedDate, setSelectedDate] = useState(getLocalDate());
   const [food, setFood] = useState('');
   const [calories, setCalories] = useState('');
   const [weight, setWeight] = useState('');
-  const [selectedDate, setSelectedDate] = useState(getLocalDate());
   const [editingId, setEditingId] = useState(null);
+  const [isSyncing, setIsSyncing] = useState(false);
   
-  const API_URL = "https://sheetdb.io/api/v1/zbceyj9yrll6m";
+  const API_URL = "https://script.google.com/macros/s/AKfycbwKE4zeTe2ASxwqSH_Uw6xJX67yAFPy0aiRKnUXDMDnzXpDkWpxfGZb7KTBZVNLov0/exec";
+  
   const DAILY_GOAL = 1700;
-  const TARGET_WEIGHT = 150;
 
-  useEffect(() => { fetchLogs(); }, []);
+  useEffect(() => { 
+    fetchLogs(); 
+  }, []);
 
   const fetchLogs = () => {
-    fetch(API_URL).then(res => res.json()).then(data => {
-      if (Array.isArray(data)) setLogs(data);
+    setIsSyncing(true);
+    const proxyUrl = "https://corsproxy.io/?";
+    const targetUrl = encodeURIComponent(`${API_URL}?t=${Date.now()}`);
+
+    fetch(`${proxyUrl}${targetUrl}`)
+      .then(res => res.json())
+      .then(data => {
+        if (Array.isArray(data)) {
+          const cleanData = data.map(item => {
+            let itemDate = item.date;
+            if (itemDate && typeof itemDate === 'string' && itemDate.includes('T')) {
+                itemDate = itemDate.split('T')[0];
+            }
+            return {
+              ...item,
+              date: itemDate,
+              calories: Number(item.calories || 0),
+              weight: Number(item.weight || 0),
+              id: item.id ? item.id.toString() : Math.random().toString()
+            };
+          });
+          setLogs(cleanData);
+        }
+        setIsSyncing(false);
+      })
+      .catch(err => {
+        console.error("Fetch error:", err);
+        setIsSyncing(false);
+      });
+  };
+
+  const handleAddFood = (name, cals) => {
+    if (!name || !cals) return;
+    
+    const foodName = name.trim();
+    const foodCals = Number(cals);
+
+    // Check if this food already exists for the SELECTED DATE
+    const existingEntry = logs.find(l => 
+      l.date === selectedDate && 
+      l.food.toLowerCase() === foodName.toLowerCase() &&
+      l.type === 'food'
+    );
+
+    let entry;
+    if (existingEntry && !editingId) {
+      // CONSOLIDATION: Add calories to existing row
+      entry = { 
+        ...existingEntry, 
+        calories: Number(existingEntry.calories) + foodCals 
+      };
+      setLogs(prev => prev.map(l => l.id === existingEntry.id ? entry : l));
+    } else if (editingId) {
+        // EDIT MODE: Update existing entry being edited
+        entry = { id: editingId, date: selectedDate, food: foodName, calories: foodCals, weight: 0, type: 'food' };
+        setLogs(prev => prev.map(l => l.id === editingId ? entry : l));
+    } else {
+      // NEW ROW: Create fresh entry
+      entry = { 
+        id: Date.now().toString(), 
+        date: selectedDate, 
+        food: foodName, 
+        calories: foodCals, 
+        weight: 0, 
+        type: 'food' 
+      };
+      setLogs(prev => [...prev, entry]);
+    }
+
+    // Post to Google (Script handles "Update if ID exists")
+    fetch(API_URL, {
+      method: 'POST',
+      mode: 'no-cors',
+      body: JSON.stringify(entry)
+    }).then(() => {
+        setTimeout(fetchLogs, 2000);
+    });
+
+    setFood(''); 
+    setCalories(''); 
+    setEditingId(null);
+  };
+
+  const removeEntry = (id) => {
+    setLogs(prev => prev.filter(l => l.id !== id));
+    fetch(API_URL, {
+      method: 'POST',
+      mode: 'no-cors',
+      body: JSON.stringify({ id: id, action: 'delete' })
+    }).then(() => {
+        setTimeout(fetchLogs, 2000);
     });
   };
 
-  const handleAddFood = (name, cals, idToReplace = null) => {
-    const trimmedName = name.trim();
-    const existing = logs.find(l => 
-      l.date === selectedDate && 
-      l.type === 'food' && 
-      l.food.toLowerCase() === trimmedName.toLowerCase() &&
-      l.id !== idToReplace
-    );
-
-    if (existing) {
-      const updatedEntry = { ...existing, calories: Number(existing.calories) + Number(cals) };
-      fetch(`${API_URL}/id/${existing.id}`, {
-        method: 'PATCH',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ data: updatedEntry })
-      }).then(() => {
-        if (idToReplace) fetch(`${API_URL}/id/${idToReplace}`, { method: 'DELETE' }).then(fetchLogs);
-        else fetchLogs();
-      });
-    } else {
-      const entry = { id: idToReplace || Date.now(), date: selectedDate, food: trimmedName, calories: cals, weight: 0, type: 'food' };
-      fetch(idToReplace ? `${API_URL}/id/${idToReplace}` : API_URL, {
-        method: idToReplace ? 'PATCH' : 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(idToReplace ? { data: entry } : { data: [entry] })
-      }).then(fetchLogs);
-    }
-  };
-
-  const deleteEntry = (id) => {
-    fetch(`${API_URL}/id/${id}`, { method: 'DELETE' }).then(fetchLogs);
+  const logWeight = (e) => {
+    e.preventDefault();
+    const entry = { id: Date.now().toString(), date: selectedDate, food: 'Weight Entry', calories: 0, weight: Number(weight), type: 'weight' };
+    setLogs(prev => [...prev, entry]);
+    fetch(API_URL, { method: 'POST', mode: 'no-cors', body: JSON.stringify(entry) });
+    setWeight('');
   };
 
   const getWeekData = () => {
@@ -66,164 +132,126 @@ function CalorieTracker() {
     const day = now.getDay();
     const diff = now.getDate() - day + (day === 0 ? -6 : 1);
     const monday = new Date(now.setDate(diff));
-
     return [...Array(7)].map((_, i) => {
       const d = new Date(monday);
       d.setDate(monday.getDate() + i);
       const dStr = d.toLocaleDateString('en-CA');
-      return logs.filter(l => l.date === dStr && l.type === 'food').reduce((s, c) => s + Number(c.calories || 0), 0);
+      return logs.filter(l => l.date === dStr && l.type === 'food').reduce((s, c) => s + c.calories, 0);
     });
   };
 
-  const dailyLogs = logs.filter(l => l.date === selectedDate && l.type === 'food')
-    .sort((a, b) => (a.food.toLowerCase().includes('coffee') ? -1 : 1));
-  const usedToday = dailyLogs.reduce((a, c) => a + Number(c.calories), 0);
-  const progressPercent = Math.min((usedToday / DAILY_GOAL) * 100, 100);
-  const avg7Day = Math.round(getWeekData().reduce((a, b) => a + b, 0) / 7);
+  // SORTING: Coffee first, then Alphabetical
+  const dailyLogs = logs
+    .filter(l => l.date === selectedDate && l.type === 'food')
+    .sort((a, b) => {
+      const aCoffee = a.food.toLowerCase().includes('coffee');
+      const bCoffee = b.food.toLowerCase().includes('coffee');
+      if (aCoffee && !bCoffee) return -1;
+      if (!aCoffee && bCoffee) return 1;
+      return a.food.localeCompare(b.food);
+    });
 
-  const weightTrendData = logs
-    .filter(l => l.type === 'weight')
-    .sort((a, b) => new Date(a.date) - new Date(b.date))
-    .slice(-90);
+  const usedToday = dailyLogs.reduce((a, c) => a + c.calories, 0);
+  const weightTrendData = logs.filter(l => l.type === 'weight').sort((a, b) => new Date(a.date) - new Date(b.date)).slice(-30);
 
   return (
     <div className="container py-4" style={{ maxWidth: '950px' }}>
-      <h2 className="text-center mb-4 fw-bold text-primary">Health Tracker</h2>
+      <header className="text-center mb-4">
+        <h2 className="fw-bold text-primary">Health Tracker</h2>
+        <button className="btn btn-sm btn-outline-secondary" onClick={fetchLogs}>
+          {isSyncing ? 'Syncing...' : '🔄 Refresh Data'}
+        </button>
+      </header>
 
-      {/* 1. Progress Bar (Card 1) */}
+      {/* Progress Card */}
       <div className="card shadow-sm mb-4 border-0 p-3">
         <div className="d-flex justify-content-between mb-2 fw-bold">
           <input type="date" className="form-control w-auto" value={selectedDate} onChange={(e) => setSelectedDate(e.target.value)} />
           <span>{usedToday} / {DAILY_GOAL} kcal</span>
         </div>
-        <div className="progress" style={{ height: '20px' }}>
-          <div className={`progress-bar progress-bar-striped progress-bar-animated ${usedToday > DAILY_GOAL ? 'bg-danger' : 'bg-success'}`} style={{ width: `${progressPercent}%` }}></div>
+        <div className="progress" style={{ height: '20px', borderRadius: '10px' }}>
+          <div className={`progress-bar progress-bar-striped ${usedToday > DAILY_GOAL ? 'bg-danger' : 'bg-success'}`} style={{ width: `${Math.min((usedToday/DAILY_GOAL)*100, 100)}%` }}></div>
         </div>
       </div>
 
       <div className="row g-4">
-        {/* Main Column */}
+        {/* Logs & Charts Column */}
         <div className="col-lg-7 order-lg-2">
-          {/* 2. Food Log (Card 2) */}
           <div className="card shadow-sm border-0 mb-4">
-            <div className="card-header bg-white fw-bold">Food Log (Coffee Priority)</div>
+            <div className="card-header bg-white fw-bold d-flex justify-content-between align-items-center">
+                <span>Daily Log</span>
+                {editingId && <span className="badge bg-warning text-dark">Editing Item</span>}
+            </div>
             <div className="list-group list-group-flush">
-              {dailyLogs.length > 0 ? dailyLogs.map(l => (
-                <div key={l.id} className="list-group-item d-flex justify-content-between align-items-center">
-                  <div><strong>{l.food}</strong><br/><small>{l.calories} kcal</small></div>
-                  <div>
-                    <button onClick={() => { setEditingId(l.id); setFood(l.food); setCalories(l.calories); }} className="btn btn-sm text-info">Edit</button>
-                    <button onClick={() => deleteEntry(l.id)} className="btn btn-sm text-danger">Del</button>
+              {dailyLogs.length === 0 ? (
+                <div className="list-group-item text-center text-muted py-4">No entries for this date.</div>
+              ) : (
+                dailyLogs.map((l) => (
+                  <div key={l.id} className="list-group-item d-flex justify-content-between align-items-center">
+                    <div><strong>{l.food}</strong><br/><small className="text-muted">{l.calories} kcal</small></div>
+                    <div>
+                      <button onClick={() => {setEditingId(l.id); setFood(l.food); setCalories(l.calories);}} className="btn btn-sm text-info me-2">Edit</button>
+                      <button onClick={() => removeEntry(l.id)} className="btn btn-sm text-danger">Del</button>
+                    </div>
                   </div>
-                </div>
-              )) : <div className="p-3 text-center text-muted">No food logged today.</div>}
+                ))
+              )}
             </div>
           </div>
 
-          {/* 3. Quick Add (Card 3 on Mobile) */}
-          <div className="card shadow-sm p-3 border-0 mb-4 d-lg-none">
-             <h6 className="fw-bold mb-3">⚡ Quick Add</h6>
-             <div className="overflow-auto" style={{ maxHeight: '300px' }}>
-              {FOOD_PRESETS.map((cat, idx) => (
-                <div key={idx} className="mb-2">
-                  <small className="text-uppercase text-muted fw-bold" style={{ fontSize: '0.7rem' }}>{cat.category}</small>
-                  <div className="d-flex flex-wrap gap-2 mt-1">
-                    {cat.items.map((item, i) => (
-                      <button key={i} onClick={() => handleAddFood(item.name, item.calories)} className="btn btn-sm btn-outline-secondary">
-                        {item.name} <span className="text-primary fw-bold ms-1">{item.calories}</span>
-                      </button>
-                    ))}
-                  </div>
-                </div>
-              ))}
-            </div>
+          <div className="card shadow-sm mb-4 p-3 border-0" style={{ height: '200px' }}>
+            <Bar data={{
+              labels: ['M', 'T', 'W', 'T', 'F', 'S', 'S'],
+              datasets: [{ label: 'Calories', data: getWeekData(), backgroundColor: '#198754' }]
+            }} options={{ maintainAspectRatio: false }} />
           </div>
 
-          {/* 4. Manual Log (Card 4 on Mobile) */}
-          <div className="card shadow-sm p-3 mb-4 border-0 d-lg-none">
-            <h6 className="fw-bold mb-3">{editingId ? '✏️ Edit Food' : '🥗 Manual Log'}</h6>
-            <form onSubmit={(e) => { e.preventDefault(); handleAddFood(food, calories, editingId); setFood(''); setCalories(''); setEditingId(null); }}>
-              <input className="form-control mb-2" placeholder="Food" value={food} onChange={(e) => setFood(e.target.value)} required />
-              <input className="form-control mb-2" type="number" placeholder="kcal" value={calories} onChange={(e) => setCalories(e.target.value)} required />
-              <button className="btn btn-primary w-100">{editingId ? 'Save' : 'Add'}</button>
-            </form>
-          </div>
-
-          {/* Weekly Chart */}
-          <div className="card shadow-sm mb-4 p-3 border-0">
-            <h6 className="fw-bold text-muted mb-3 text-center">Weekly Intake</h6>
-            <div style={{ height: '180px' }}>
-              <Bar data={{
-                labels: ['M', 'T', 'W', 'T', 'F', 'S', 'S'],
-                datasets: [{ data: getWeekData(), backgroundColor: getWeekData().map(v => v > DAILY_GOAL ? '#dc3545' : '#198754'), borderRadius: 5 }]
-              }} options={{ plugins: { legend: { display: false } }, maintainAspectRatio: false }} />
-            </div>
-          </div>
-
-          {/* Weight Trend */}
-          <div className="card shadow-sm p-3 border-0 mb-4">
-            <h6 className="fw-bold text-muted mb-2 text-center">Weight Trend vs. {TARGET_WEIGHT}lb Goal</h6>
-            <div style={{ height: '220px' }}>
-              <Line data={{
-                labels: weightTrendData.map(l => l.date),
-                datasets: [
-                  { label: 'Weight', data: weightTrendData.map(l => l.weight), borderColor: '#0d6efd', tension: 0.3, fill: false },
-                  { label: 'Goal', data: weightTrendData.map(() => TARGET_WEIGHT), borderColor: '#ffc107', borderDash: [5, 5], pointRadius: 0 }
-                ]
-              }} options={{ maintainAspectRatio: false, plugins: { legend: { display: false } } }} />
-            </div>
+          <div className="card shadow-sm p-3 border-0" style={{ height: '200px' }}>
+            <Line data={{
+              labels: weightTrendData.map(l => l.date),
+              datasets: [{ label: 'Weight', data: weightTrendData.map(l => l.weight), borderColor: '#0d6efd', tension: 0.3 }]
+            }} options={{ maintainAspectRatio: false }} />
           </div>
         </div>
 
-        {/* Sidebar Column (Desktop) */}
-        <div className="col-lg-5 order-lg-1 d-none d-lg-block">
-          {/* Quick Add (Desktop Sidebar) */}
-          <div className="card shadow-sm p-3 border-0 mb-4">
-            <h6 className="fw-bold mb-3">⚡ Quick Add</h6>
-            <div className="overflow-auto" style={{ maxHeight: '350px' }}>
-              {FOOD_PRESETS.map((cat, idx) => (
-                <div key={idx} className="mb-2">
-                  <small className="text-uppercase text-muted fw-bold" style={{ fontSize: '0.7rem' }}>{cat.category}</small>
-                  <div className="d-flex flex-wrap gap-2 mt-1">
-                    {cat.items.map((item, i) => (
-                      <button key={i} onClick={() => handleAddFood(item.name, item.calories)} className="btn btn-sm btn-outline-secondary">
-                        {item.name} <span className="text-primary fw-bold ms-1">{item.calories}</span>
-                      </button>
-                    ))}
-                  </div>
-                </div>
-              ))}
-            </div>
-          </div>
-
-          {/* Manual Log (Desktop Sidebar) */}
+        {/* Input Controls Column */}
+        <div className="col-lg-5 order-lg-1">
           <div className="card shadow-sm p-3 mb-4 border-0">
-            <h6 className="fw-bold mb-3">{editingId ? 'Edit Item' : 'Manual Log'}</h6>
-            <form onSubmit={(e) => { e.preventDefault(); handleAddFood(food, calories, editingId); setFood(''); setCalories(''); setEditingId(null); }}>
-              <input className="form-control mb-2" placeholder="Item Name" value={food} onChange={(e) => setFood(e.target.value)} required />
-              <input className="form-control mb-2" type="number" placeholder="kcal" value={calories} onChange={(e) => setCalories(e.target.value)} required />
-              <button className="btn btn-primary w-100">{editingId ? 'Save' : 'Add'}</button>
-            </form>
+            <h6 className="fw-bold mb-3">⚡ Quick Add</h6>
+            {FOOD_PRESETS.map((cat, idx) => (
+              <div key={idx} className="mb-3">
+                <small className="text-muted fw-bold text-uppercase" style={{fontSize: '0.7rem'}}>{cat.category}</small>
+                <div className="d-flex flex-wrap gap-2 mt-1">
+                  {cat.items.map((item, i) => (
+                    <button key={i} onClick={() => handleAddFood(item.name, item.calories)} className="btn btn-sm btn-outline-secondary">
+                      {item.name} <span className="badge bg-light text-dark ms-1">{item.calories}</span>
+                    </button>
+                  ))}
+                </div>
+              </div>
+            ))}
           </div>
 
-          {/* Weight Log */}
-          <div className="card shadow-sm p-3 border-0 mb-4">
+          <div className="card shadow-sm p-3 mb-4 border-0 bg-light">
+            <h6 className="fw-bold mb-3">{editingId ? '📝 Update Entry' : '🥗 Manual Log'}</h6>
+            <input className="form-control mb-2" placeholder="Item Name" value={food} onChange={(e) => setFood(e.target.value)} />
+            <input className="form-control mb-2" type="number" placeholder="Calories" value={calories} onChange={(e) => setCalories(e.target.value)} />
+            <div className="d-flex gap-2">
+                <button className={`btn w-100 ${editingId ? 'btn-warning' : 'btn-primary'}`} onClick={() => handleAddFood(food, calories)}>
+                    {editingId ? 'Update' : 'Add Food'}
+                </button>
+                {editingId && <button className="btn btn-outline-secondary" onClick={() => {setEditingId(null); setFood(''); setCalories('');}}>Cancel</button>}
+            </div>
+          </div>
+
+          <div className="card shadow-sm p-3 border-0">
             <h6 className="fw-bold mb-3">⚖️ Log Weight</h6>
-            <form onSubmit={(e) => {
-              e.preventDefault();
-              const entry = { id: Date.now(), date: selectedDate, food: 'Weight Entry', calories: 0, weight, type: 'weight' };
-              fetch(API_URL, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ data: [entry] }) }).then(() => { setWeight(''); fetchLogs(); });
-            }}>
-              <input className="form-control mb-2" type="number" step="0.1" placeholder="lbs" value={weight} onChange={(e) => setWeight(e.target.value)} required />
-              <button className="btn btn-dark w-100">Save Weight</button>
+            <form onSubmit={logWeight}>
+                <input className="form-control mb-2" type="number" step="0.1" value={weight} onChange={(e) => setWeight(e.target.value)} placeholder="lbs" required />
+                <button className="btn btn-dark w-100">Save Weight</button>
             </form>
           </div>
         </div>
-      </div>
-
-      <div className="alert alert-light border shadow-sm mt-4 d-flex justify-content-between align-items-center">
-        <span>7-Day Average: <strong>{avg7Day} kcal</strong></span>
-        <span className="badge bg-warning text-dark">Goal: {TARGET_WEIGHT} lbs</span>
       </div>
     </div>
   );
