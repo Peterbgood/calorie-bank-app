@@ -178,20 +178,46 @@ function CalorieTracker() {
         </div>
 
         {/* 3. QUICK ADD */}
-        <div className="card shadow-sm p-3 border-0">
-          <h6 className="fw-bold mb-2 small text-uppercase text-muted">⚡ Quick Add</h6>
-          {FOOD_PRESETS.map((cat, idx) => (
-            <div key={idx} className="mb-2">
-              <div className="d-flex flex-wrap gap-2">
-                {cat.items.map((item, i) => (
-                  <button key={i} onClick={() => handleAddFood(item.name, item.calories)} className="btn btn-sm btn-outline-secondary py-1 px-2" style={{fontSize: '0.8rem'}}>
-                    {item.name} <span className="fw-bold">{item.calories}</span>
-                  </button>
-                ))}
-              </div>
-            </div>
+    {/* 3. QUICK ADD SECTION */}
+<div className="card shadow-sm p-3 border-0">
+  <h6 className="fw-bold mb-3 small text-uppercase text-muted border-bottom pb-2">
+    ⚡ Quick Add
+  </h6>
+  
+  <div style={{ maxHeight: '400px', overflowY: 'auto', paddingRight: '5px' }}>
+    {FOOD_PRESETS.map((cat, idx) => (
+      <div key={idx} className="mb-4">
+        {/* Category Header with Icon */}
+        <div className="d-flex align-items-center mb-2">
+          <i className={`${cat.icon} text-primary me-2`} style={{ width: '20px' }}></i>
+          <span className="fw-bold text-dark" style={{ fontSize: '0.9rem' }}>
+            {cat.category}
+          </span>
+        </div>
+        
+        {/* Item Buttons */}
+        <div className="d-flex flex-wrap gap-2 ps-1">
+          {cat.items.map((item, i) => (
+            <button 
+              key={i} 
+              onClick={() => handleAddFood(item.name, item.calories)} 
+              className="btn btn-sm btn-outline-secondary py-1 px-2 d-flex align-items-center bg-white shadow-sm"
+              style={{ fontSize: '0.75rem', borderRadius: '8px' }}
+            >
+              {/* Optional: Show item icon if you have them in JSON */}
+              {item.icon && <i className={`${item.icon} me-1 opacity-75`} style={{fontSize: '0.7rem'}}></i>}
+              
+              {item.name} 
+              <span className="ms-1 fw-bold text-primary">
+                {item.calories}
+              </span>
+            </button>
           ))}
         </div>
+      </div>
+    ))}
+  </div>
+</div>
 
         {/* 4. MANUAL ENTRY - FONT SIZE FIX HERE */}
         <div className="card shadow-sm p-3 border-0 bg-light">
