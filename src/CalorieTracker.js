@@ -137,11 +137,19 @@ function CalorieTracker() {
       </header>
 
       {/* 1. PROGRESS BAR */}
+    {/* 1. PROGRESS BAR */}
       <div className="card shadow-sm mb-3 border-0 p-3">
         <div className="d-flex justify-content-between mb-2 fw-bold align-items-center text-dark">
           <input type="date" className="form-control form-control-sm w-auto" style={inputStyle} value={selectedDate} onChange={(e) => setSelectedDate(e.target.value)} />
           <div className="text-end" style={{lineHeight: '1'}}>
              <span className="small">{usedToday} / {DAILY_GOAL} kcal</span><br/>
+             {/* CALORIES REMAINING LOGIC */}
+             <span className={`fw-bold`} style={{fontSize: '0.75rem', color: (DAILY_GOAL - usedToday) < 0 ? '#dc3545' : '#198754'}}>
+                {DAILY_GOAL - usedToday >= 0 
+                  ? `${DAILY_GOAL - usedToday} left` 
+                  : `${Math.abs(DAILY_GOAL - usedToday)} over`}
+             </span>
+             <br/>
              <button className="btn btn-link btn-sm p-0 text-decoration-none" style={{fontSize: '0.7rem'}} onClick={fetchLogs} disabled={isSyncing}>
                 {isSyncing ? 'Syncing...' : '🔄 Refresh'}
              </button>
