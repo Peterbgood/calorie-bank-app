@@ -206,20 +206,31 @@ function CalorieTracker() {
         {/* Item Buttons */}
         <div className="d-flex flex-wrap gap-2 ps-1">
           {cat.items.map((item, i) => (
-            <button 
-              key={i} 
-              onClick={() => handleAddFood(item.name, item.calories)} 
-              className="btn btn-sm btn-outline-secondary py-1 px-2 d-flex align-items-center bg-white shadow-sm"
-              style={{ fontSize: '0.75rem', borderRadius: '8px' }}
-            >
-              {/* Optional: Show item icon if you have them in JSON */}
-              {item.icon && <i className={`${item.icon} me-1 opacity-75`} style={{fontSize: '0.7rem'}}></i>}
-              
-              {item.name} 
-              <span className="ms-1 fw-bold text-primary">
-                {item.calories}
-              </span>
-            </button>
+           <button 
+  key={i} 
+  onClick={() => handleAddFood(item.name, item.calories)} 
+  className="btn btn-sm btn-light border py-1 px-2 d-flex align-items-center shadow-sm quick-add-btn"
+  style={{ 
+    fontSize: '0.75rem', 
+    borderRadius: '8px',
+    backgroundColor: '#ffffff',
+    color: '#333'
+  }}
+  onMouseEnter={(e) => {
+    e.currentTarget.style.backgroundColor = '#f8f9fa';
+    e.currentTarget.style.borderColor = '#0d6efd';
+  }}
+  onMouseLeave={(e) => {
+    e.currentTarget.style.backgroundColor = '#ffffff';
+    e.currentTarget.style.borderColor = '#dee2e6';
+  }}
+>
+  {item.icon && <i className={`${item.icon} me-1 text-muted`} style={{fontSize: '0.7rem'}}></i>}
+  {item.name} 
+  <span className="ms-1 fw-bold text-primary">
+    {item.calories}
+  </span>
+</button>
           ))}
         </div>
       </div>
