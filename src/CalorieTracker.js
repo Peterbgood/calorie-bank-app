@@ -160,7 +160,7 @@ function CalorieTracker() {
               <span>Today's Food</span>
               {editingId && <span className="badge bg-warning text-dark" style={{fontSize: '0.6rem'}}>Editing</span>}
           </div>
-          <div className="list-group list-group-flush" style={{maxHeight: '250px', overflowY: 'auto'}}>
+          <div className="list-group list-group-flush" style={{maxHeight: '500px', overflowY: 'auto'}}>
             {dailyLogs.length === 0 ? (
               <div className="list-group-item text-center text-muted py-3">No food logged yet.</div>
             ) : (
