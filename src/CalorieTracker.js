@@ -266,7 +266,7 @@ function CalorieTracker() {
           </div>
         </div>
 
-        {/* 5. WEEK LOG & AVG */}
+      {/* 5. WEEK LOG & AVG */}
         <div className="card shadow-sm p-3 border-0">
           <div className="d-flex justify-content-between align-items-center mb-2">
             <h6 className="fw-bold mb-0 small text-uppercase text-muted">Weekly Log</h6>
@@ -275,10 +275,27 @@ function CalorieTracker() {
             </span>
           </div>
           <div style={{ height: '140px' }}>
-            <Bar data={{
+            <Bar 
+              data={{
                 labels: ['M', 'T', 'W', 'T', 'F', 'S', 'S'],
-                datasets: [{ label: 'Kcal', data: weekInfo.data, backgroundColor: '#198754', borderRadius: 4 }]
-            }} options={{ maintainAspectRatio: false, plugins: { legend: { display: false } } }} />
+                datasets: [{ 
+                  label: 'Kcal', 
+                  data: weekInfo.data, 
+                  // Logic: If day value > 1700, use Red, else use Green
+                  backgroundColor: weekInfo.data.map(val => val > DAILY_GOAL ? '#dc3545' : '#198754'), 
+                  borderRadius: 4 
+                }]
+              }} 
+              options={{ 
+                maintainAspectRatio: false, 
+                plugins: { legend: { display: false } },
+                scales: {
+                  y: {
+                    beginAtZero: true
+                  }
+                }
+              }} 
+            />
           </div>
         </div>
 
