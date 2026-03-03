@@ -19,10 +19,7 @@ function CalorieTracker() {
   const API_URL = "https://script.google.com/macros/s/AKfycbwKE4zeTe2ASxwqSH_Uw6xJX67yAFPy0aiRKnUXDMDnzXpDkWpxfGZb7KTBZVNLov0/exec";
   const DAILY_GOAL = 1700;
 
-  // Prevent iPhone Zoom Style
-  const inputStyle = {
-    fontSize: '16px', // Minimum size to prevent iOS zoom
-  };
+  const inputStyle = { fontSize: '16px' };
 
   useEffect(() => { fetchLogs(); }, []);
 
@@ -58,13 +55,7 @@ function CalorieTracker() {
     if (!name || !cals) return;
     const foodName = name.trim();
     const foodCals = Number(cals);
-    
-    const existingEntry = logs.find(l => 
-      l.date === selectedDate && 
-      l.food.toLowerCase() === foodName.toLowerCase() && 
-      l.type === 'food'
-    );
-
+    const existingEntry = logs.find(l => l.date === selectedDate && l.food.toLowerCase() === foodName.toLowerCase() && l.type === 'food');
     let entry;
     if (existingEntry && !editingId) {
       entry = { ...existingEntry, calories: Number(existingEntry.calories) + foodCals };
@@ -76,7 +67,6 @@ function CalorieTracker() {
       entry = { id: Date.now().toString(), date: selectedDate, food: foodName, calories: foodCals, weight: 0, type: 'food' };
       setLogs(prev => [...prev, entry]);
     }
-
     fetch(API_URL, { method: 'POST', mode: 'no-cors', body: JSON.stringify(entry) }).then(() => setTimeout(fetchLogs, 2000));
     setFood(''); setCalories(''); setEditingId(null);
   };
@@ -99,6 +89,9 @@ function CalorieTracker() {
     const day = now.getDay();
     const diff = now.getDate() - day + (day === 0 ? -6 : 1);
     const monday = new Date(now.setDate(diff));
+    const mondayStr = monday.toLocaleDateString('en-CA');
+
+    // Current Week Data
     const weeklyCals = [...Array(7)].map((_, i) => {
       const d = new Date(monday);
       d.setDate(monday.getDate() + i);
@@ -106,14 +99,40 @@ function CalorieTracker() {
       return logs.filter(l => l.date === dStr && l.type === 'food').reduce((s, c) => s + c.calories, 0);
     });
     
+    // Stats for current week
     const currentDayIdx = new Date().getDay() === 0 ? 6 : new Date().getDay() - 1;
     const daysElapsed = weeklyCals.slice(0, currentDayIdx + 1);
-    const avg = daysElapsed.reduce((a, b) => a + b, 0) / (daysElapsed.length || 1);
+    const currentAvg = daysElapsed.reduce((a, b) => a + b, 0) / (daysElapsed.length || 1);
 
-    return { data: weeklyCals, avg: Math.round(avg) };
+    // Historical Stats (Excluding this week)
+    const historicalLogs = logs.filter(l => l.type === 'food' && l.date < mondayStr);
+    const dailyTotals = Object.values(historicalLogs.reduce((acc, curr) => {
+      acc[curr.date] = (acc[curr.date] || 0) + curr.calories;
+      return acc;
+    }, {}));
+
+    const histHigh = dailyTotals.length ? Math.max(...dailyTotals) : 0;
+    const histLow = dailyTotals.length ? Math.min(...dailyTotals) : 0;
+    const histAvg = dailyTotals.length ? (dailyTotals.reduce((a, b) => a + b, 0) / dailyTotals.length) : 0;
+
+    return { 
+      data: weeklyCals, 
+      avg: Math.round(currentAvg),
+      histHigh, histLow, histAvg: Math.round(histAvg)
+    };
+  };
+
+  const getWeightStats = () => {
+    const weights = logs.filter(l => l.type === 'weight' && l.weight > 0).map(l => l.weight);
+    if (weights.length === 0) return { high: 0, low: 0, avg: 0 };
+    const high = Math.max(...weights);
+    const low = Math.min(...weights);
+    const avg = weights.reduce((a, b) => a + b, 0) / weights.length;
+    return { high, low, avg: avg.toFixed(1) };
   };
 
   const weekInfo = getWeekData();
+  const weightStats = getWeightStats();
 
   const dailyLogs = logs
     .filter(l => l.date === selectedDate && l.type === 'food')
@@ -131,9 +150,6 @@ function CalorieTracker() {
 
   return (
     <div className="container py-3" style={{ maxWidth: '950px' }}>
-      {/* FANCY HEADER */}
-      {/* PREMIER HEADER DESIGN */}
-      {/* PREMIER HEADER DESIGN */}
       <header className="py-4 mb-2 border-bottom mb-4" style={{ borderColor: '#f0f0f0' }}>
         <div className="d-flex justify-content-between align-items-center">
           <div>
@@ -180,18 +196,13 @@ function CalorieTracker() {
         </div>
       </header>
 
-      {/* 1. PROGRESS BAR */}
-    {/* 1. PROGRESS BAR */}
       <div className="card shadow-sm mb-3 border-0 p-3">
         <div className="d-flex justify-content-between mb-2 fw-bold align-items-center text-dark">
           <input type="date" className="form-control form-control-sm w-auto" style={inputStyle} value={selectedDate} onChange={(e) => setSelectedDate(e.target.value)} />
           <div className="text-end" style={{lineHeight: '1'}}>
              <span className="small">{usedToday} / {DAILY_GOAL} kcal</span><br/>
-             {/* CALORIES REMAINING LOGIC */}
              <span className={`fw-bold`} style={{fontSize: '0.75rem', color: (DAILY_GOAL - usedToday) < 0 ? '#dc3545' : '#198754'}}>
-                {DAILY_GOAL - usedToday >= 0 
-                  ? `${DAILY_GOAL - usedToday} left` 
-                  : `${Math.abs(DAILY_GOAL - usedToday)} over`}
+                {DAILY_GOAL - usedToday >= 0 ? `${DAILY_GOAL - usedToday} left` : `${Math.abs(DAILY_GOAL - usedToday)} over`}
              </span>
              <br/>
              <button className="btn btn-link btn-sm p-0 text-decoration-none" style={{fontSize: '0.7rem'}} onClick={fetchLogs} disabled={isSyncing}>
@@ -205,8 +216,6 @@ function CalorieTracker() {
       </div>
 
       <div className="d-flex flex-column gap-3">
-        
-        {/* 2. DAILY FOOD LOG */}
         <div className="card shadow-sm border-0">
           <div className="card-header bg-white fw-bold py-2 d-flex justify-content-between align-items-center">
               <span>Today's Food</span>
@@ -229,146 +238,103 @@ function CalorieTracker() {
           </div>
         </div>
 
-        {/* 3. QUICK ADD */}
-    {/* 3. QUICK ADD SECTION */}
-<div className="card shadow-sm p-3 border-0">
-  <h6 className="fw-bold mb-3 small text-uppercase text-muted border-bottom pb-2">
-    ⚡ Quick Add
-  </h6>
-  
-  <div style={{ maxHeight: '400px', overflowY: 'auto', paddingRight: '5px' }}>
-    {FOOD_PRESETS.map((cat, idx) => (
-      <div key={idx} className="mb-4">
-        {/* Category Header with Icon */}
-        <div className="d-flex align-items-center mb-2">
-          <i className={`${cat.icon} text-primary me-2`} style={{ width: '20px' }}></i>
-          <span className="fw-bold text-dark" style={{ fontSize: '0.9rem' }}>
-            {cat.category}
-          </span>
+        <div className="card shadow-sm p-3 border-0">
+          <h6 className="fw-bold mb-3 small text-uppercase text-muted border-bottom pb-2">⚡ Quick Add</h6>
+          <div style={{ maxHeight: '400px', overflowY: 'auto', paddingRight: '5px' }}>
+            {FOOD_PRESETS.map((cat, idx) => (
+              <div key={idx} className="mb-4">
+                <div className="d-flex align-items-center mb-2">
+                  <i className={`${cat.icon} text-primary me-2`} style={{ width: '20px' }}></i>
+                  <span className="fw-bold text-dark" style={{ fontSize: '0.9rem' }}>{cat.category}</span>
+                </div>
+                <div className="d-flex flex-wrap gap-2 ps-1">
+                  {cat.items.map((item, i) => (
+                    <button key={i} onClick={() => handleAddFood(item.name, item.calories)} className="btn btn-sm btn-light border py-1 px-2 d-flex align-items-center shadow-sm quick-add-btn" style={{ fontSize: '0.75rem', borderRadius: '8px', backgroundColor: '#ffffff', color: '#333' }}>
+                      {item.icon && <i className={`${item.icon} me-1 text-muted`} style={{fontSize: '0.7rem'}}></i>}
+                      {item.name} <span className="ms-1 fw-bold text-primary">{item.calories}</span>
+                    </button>
+                  ))}
+                </div>
+              </div>
+            ))}
+          </div>
         </div>
-        
-        {/* Item Buttons */}
-        <div className="d-flex flex-wrap gap-2 ps-1">
-          {cat.items.map((item, i) => (
-           <button 
-  key={i} 
-  onClick={() => handleAddFood(item.name, item.calories)} 
-  className="btn btn-sm btn-light border py-1 px-2 d-flex align-items-center shadow-sm quick-add-btn"
-  style={{ 
-    fontSize: '0.75rem', 
-    borderRadius: '8px',
-    backgroundColor: '#ffffff',
-    color: '#333'
-  }}
-  onMouseEnter={(e) => {
-    e.currentTarget.style.backgroundColor = '#f8f9fa';
-    e.currentTarget.style.borderColor = '#0d6efd';
-  }}
-  onMouseLeave={(e) => {
-    e.currentTarget.style.backgroundColor = '#ffffff';
-    e.currentTarget.style.borderColor = '#dee2e6';
-  }}
->
-  {item.icon && <i className={`${item.icon} me-1 text-muted`} style={{fontSize: '0.7rem'}}></i>}
-  {item.name} 
-  <span className="ms-1 fw-bold text-primary">
-    {item.calories}
-  </span>
-</button>
-          ))}
-        </div>
-      </div>
-    ))}
-  </div>
-</div>
 
-        {/* 4. MANUAL ENTRY - FONT SIZE FIX HERE */}
         <div className="card shadow-sm p-3 border-0 bg-light">
           <h6 className="fw-bold mb-2 small text-uppercase text-muted">{editingId ? '📝 Update' : '🥗 Manual Entry'}</h6>
           <div className="d-flex gap-2 mb-2">
-              <input 
-                className="form-control" 
-                style={inputStyle} 
-                placeholder="Food Name" 
-                value={food} 
-                onChange={(e) => setFood(e.target.value)} 
-              />
-              <input 
-                className="form-control w-25" 
-                style={inputStyle} 
-                type="number" 
-                placeholder="kcal" 
-                value={calories} 
-                onChange={(e) => setCalories(e.target.value)} 
-              />
+              <input className="form-control" style={inputStyle} placeholder="Food Name" value={food} onChange={(e) => setFood(e.target.value)} />
+              <input className="form-control w-25" style={inputStyle} type="number" placeholder="kcal" value={calories} onChange={(e) => setCalories(e.target.value)} />
           </div>
           <div className="d-flex gap-2">
-              <button className={`btn btn-sm w-100 ${editingId ? 'btn-warning' : 'btn-primary'}`} onClick={() => handleAddFood(food, calories)}>
-                  {editingId ? 'Confirm Update' : 'Save Entry'}
-              </button>
+              <button className={`btn btn-sm w-100 ${editingId ? 'btn-warning' : 'btn-primary'}`} onClick={() => handleAddFood(food, calories)}>{editingId ? 'Confirm Update' : 'Save Entry'}</button>
               {editingId && <button className="btn btn-sm btn-secondary" onClick={() => {setEditingId(null); setFood(''); setCalories('');}}>Cancel</button>}
           </div>
         </div>
 
-      {/* 5. WEEK LOG & AVG */}
         <div className="card shadow-sm p-3 border-0">
           <div className="d-flex justify-content-between align-items-center mb-2">
             <h6 className="fw-bold mb-0 small text-uppercase text-muted">Weekly Log</h6>
             <span className="badge bg-success-subtle text-success border border-success-subtle px-2 py-1" style={{fontSize: '0.75rem'}}>
-                Avg: {weekInfo.avg} kcal/day
+                This Week Avg: {weekInfo.avg} kcal
             </span>
           </div>
           <div style={{ height: '140px' }}>
-            <Bar 
-              data={{
+            <Bar data={{
                 labels: ['M', 'T', 'W', 'T', 'F', 'S', 'S'],
-                datasets: [{ 
-                  label: 'Kcal', 
-                  data: weekInfo.data, 
-                  // Logic: If day value > 1700, use Red, else use Green
-                  backgroundColor: weekInfo.data.map(val => val > DAILY_GOAL ? '#dc3545' : '#198754'), 
-                  borderRadius: 4 
-                }]
-              }} 
-              options={{ 
-                maintainAspectRatio: false, 
-                plugins: { legend: { display: false } },
-                scales: {
-                  y: {
-                    beginAtZero: true
-                  }
-                }
-              }} 
-            />
+                datasets: [{ label: 'Kcal', data: weekInfo.data, backgroundColor: weekInfo.data.map(val => val > DAILY_GOAL ? '#dc3545' : '#198754'), borderRadius: 4 }]
+            }} options={{ maintainAspectRatio: false, plugins: { legend: { display: false } }, scales: { y: { beginAtZero: true } } }} />
+          </div>
+          {/* WEEKLY HISTORICAL STATS */}
+          <div className="d-flex justify-content-between mt-3 pt-2 border-top text-center">
+            <div className="flex-fill">
+              <div className="text-muted small text-uppercase fw-bold" style={{fontSize: '0.55rem'}}>Hist. High</div>
+              <div className="fw-bold text-danger" style={{fontSize: '0.8rem'}}>{weekInfo.histHigh}</div>
+            </div>
+            <div className="flex-fill border-start border-end">
+              <div className="text-muted small text-uppercase fw-bold" style={{fontSize: '0.55rem'}}>Hist. Low</div>
+              <div className="fw-bold text-success" style={{fontSize: '0.8rem'}}>{weekInfo.histLow}</div>
+            </div>
+            <div className="flex-fill">
+              <div className="text-muted small text-uppercase fw-bold" style={{fontSize: '0.55rem'}}>Hist. Avg</div>
+              <div className="fw-bold text-primary" style={{fontSize: '0.8rem'}}>{weekInfo.histAvg}</div>
+            </div>
           </div>
         </div>
 
-        {/* 6. WEIGHT LOG - FONT SIZE FIX HERE */}
         <div className="card shadow-sm p-3 border-0">
           <h6 className="fw-bold mb-2 small text-uppercase text-muted">⚖️ Log Weight</h6>
           <form onSubmit={logWeight} className="d-flex gap-2">
-              <input 
-                className="form-control" 
-                style={inputStyle} 
-                type="number" 
-                step="0.1" 
-                value={weight} 
-                onChange={(e) => setWeight(e.target.value)} 
-                placeholder="Enter lbs" 
-                required 
-              />
+              <input className="form-control" style={inputStyle} type="number" step="0.1" value={weight} onChange={(e) => setWeight(e.target.value)} placeholder="Enter lbs" required />
               <button className="btn btn-sm btn-dark px-4">Log</button>
           </form>
         </div>
 
-        {/* 7. WEIGHT CHART */}
-        <div className="card shadow-sm p-2 border-0" style={{ height: '160px' }}>
-          <Line data={{
-            labels: weightTrendData.slice(-7).map(l => l.date.split('-').slice(1).join('/')),
-            datasets: [{ label: 'Weight Trend', data: weightTrendData.slice(-7).map(l => l.weight), borderColor: '#0d6efd', tension: 0.3, pointRadius: 4 }]
-          }} options={{ maintainAspectRatio: false, plugins: { legend: { display: false } } }} />
+        <div className="card shadow-sm p-3 border-0">
+          <div className="d-flex justify-content-between align-items-center mb-2">
+            <h6 className="fw-bold mb-0 small text-uppercase text-muted">Weight Trend</h6>
+            <div className="d-flex gap-3 text-end">
+              <div>
+                <span className="text-muted small text-uppercase fw-bold me-1" style={{fontSize: '0.5rem'}}>High</span>
+                <span className="fw-bold text-dark" style={{fontSize: '0.75rem'}}>{weightStats.high}</span>
+              </div>
+              <div>
+                <span className="text-muted small text-uppercase fw-bold me-1" style={{fontSize: '0.5rem'}}>Low</span>
+                <span className="fw-bold text-dark" style={{fontSize: '0.75rem'}}>{weightStats.low}</span>
+              </div>
+              <div>
+                <span className="text-muted small text-uppercase fw-bold me-1" style={{fontSize: '0.5rem'}}>Avg</span>
+                <span className="fw-bold text-dark" style={{fontSize: '0.75rem'}}>{weightStats.avg}</span>
+              </div>
+            </div>
+          </div>
+          <div style={{ height: '140px' }}>
+            <Line data={{
+              labels: weightTrendData.slice(-7).map(l => l.date.split('-').slice(1).join('/')),
+              datasets: [{ label: 'Weight Trend', data: weightTrendData.slice(-7).map(l => l.weight), borderColor: '#0d6efd', tension: 0.3, pointRadius: 4 }]
+            }} options={{ maintainAspectRatio: false, plugins: { legend: { display: false } } }} />
+          </div>
         </div>
-
       </div>
     </div>
   );
