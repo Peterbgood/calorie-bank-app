@@ -131,9 +131,53 @@ function CalorieTracker() {
 
   return (
     <div className="container py-3" style={{ maxWidth: '950px' }}>
-      <header className="text-center mb-3">
-        <h3 className="fw-bold text-primary mb-0">Health Tracker</h3>
-        <small className="text-muted">Current Weight: <span className="fw-bold text-dark">{currentWeight} lbs</span></small>
+      {/* FANCY HEADER */}
+      {/* PREMIER HEADER DESIGN */}
+      {/* PREMIER HEADER DESIGN */}
+      <header className="py-4 mb-2 border-bottom mb-4" style={{ borderColor: '#f0f0f0' }}>
+        <div className="d-flex justify-content-between align-items-center">
+          <div>
+            <h2 className="fw-black mb-0" style={{ 
+              letterSpacing: '-1.5px', 
+              background: 'linear-gradient(135deg, #1e3c72 0%, #2a5298 100%)',
+              WebkitBackgroundClip: 'text',
+              WebkitTextFillColor: 'transparent',
+              fontSize: '2.4rem',
+              fontWeight: '900',
+              lineHeight: '1'
+            }}>
+              HEALTH <span style={{ fontWeight: '400', color: '#0d6efd', WebkitTextFillColor: 'initial' }}>TRACKER</span>
+              <span className="ms-2 badge shadow-sm" style={{ 
+                fontSize: '0.75rem', 
+                verticalAlign: 'middle', 
+                letterSpacing: '1px',
+                backgroundColor: '#ffffff',
+                color: '#0d6efd',
+                border: '1px solid #0d6efd',
+                padding: '4px 8px',
+                fontWeight: '900',
+                display: 'inline-block',
+                textFillColor: 'initial',
+                WebkitTextFillColor: 'initial'
+              }}>PRO</span>
+            </h2>
+            <p className="text-muted small mb-0 fw-bold text-uppercase mt-1" style={{ letterSpacing: '3px', fontSize: '0.6rem', opacity: '0.8' }}>
+              <i className="fas fa-check-circle me-1 text-success"></i> Premium Health Dashboard
+            </p>
+          </div>
+          <div className="text-end">
+            <div className="shadow-sm border-0 p-2 px-3 text-center" style={{ 
+              borderRadius: '15px', 
+              background: 'linear-gradient(145deg, #ffffff, #f8f9fa)',
+              minWidth: '100px'
+            }}>
+              <div className="text-muted text-uppercase fw-bold" style={{ fontSize: '0.55rem', letterSpacing: '1px' }}>Current Weight</div>
+              <div className="h5 mb-0 fw-black text-dark">
+                {currentWeight} <span className="small text-muted" style={{fontSize: '0.7rem'}}>lbs</span>
+              </div>
+            </div>
+          </div>
+        </div>
       </header>
 
       {/* 1. PROGRESS BAR */}
