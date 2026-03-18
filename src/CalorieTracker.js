@@ -10,6 +10,7 @@ function CalorieTracker() {
   
   const [logs, setLogs] = useState([]);
   const [selectedDate, setSelectedDate] = useState(getLocalDate());
+  const [viewDate, setViewDate] = useState(new Date()); // For Week Navigation
   const [food, setFood] = useState('');
   const [calories, setCalories] = useState('');
   const [weight, setWeight] = useState('');
@@ -25,9 +26,11 @@ function CalorieTracker() {
 
   const fetchLogs = () => {
     setIsSyncing(true);
-    const proxyUrl = "https://corsproxy.io/?";
-    const targetUrl = encodeURIComponent(`${API_URL}?t=${Date.now()}`);
-    fetch(`${proxyUrl}${targetUrl}`)
+    // REMOVED CORS PROXY - Using direct fetch with redirect follow
+    fetch(`${API_URL}?t=${Date.now()}`, {
+      method: 'GET',
+      redirect: 'follow'
+    })
       .then(res => res.json())
       .then(data => {
         if (Array.isArray(data)) {
@@ -49,6 +52,24 @@ function CalorieTracker() {
         setIsSyncing(false);
       })
       .catch(() => setIsSyncing(false));
+  };
+
+  // Week Navigation Logic
+  const changeWeek = (direction) => {
+    const newDate = new Date(viewDate);
+    newDate.setDate(viewDate.getDate() + (direction * 7));
+    setViewDate(newDate);
+  };
+
+  const isCurrentWeek = () => {
+    const today = new Date();
+    const tDiff = today.getDate() - today.getDay() + (today.getDay() === 0 ? -6 : 1);
+    const currentMonday = new Date(new Date(today).setDate(tDiff)).toLocaleDateString('en-CA');
+    
+    const vDiff = viewDate.getDate() - viewDate.getDay() + (viewDate.getDay() === 0 ? -6 : 1);
+    const viewMonday = new Date(new Date(viewDate).setDate(vDiff)).toLocaleDateString('en-CA');
+    
+    return currentMonday === viewMonday;
   };
 
   const handleAddFood = (name, cals) => {
@@ -85,27 +106,29 @@ function CalorieTracker() {
   };
 
   const getWeekData = () => {
-    const now = new Date();
-    const day = now.getDay();
-    const diff = now.getDate() - day + (day === 0 ? -6 : 1);
-    const monday = new Date(now.setDate(diff));
+    const day = viewDate.getDay();
+    const diff = viewDate.getDate() - day + (day === 0 ? -6 : 1);
+    const monday = new Date(new Date(viewDate).setDate(diff));
     const mondayStr = monday.toLocaleDateString('en-CA');
 
-    // Current Week Data
+    const labels = [];
     const weeklyCals = [...Array(7)].map((_, i) => {
       const d = new Date(monday);
       d.setDate(monday.getDate() + i);
       const dStr = d.toLocaleDateString('en-CA');
+      labels.push(d.toLocaleDateString('en-US', { weekday: 'short' }).charAt(0));
       return logs.filter(l => l.date === dStr && l.type === 'food').reduce((s, c) => s + c.calories, 0);
     });
     
-    // Stats for current week
-    const currentDayIdx = new Date().getDay() === 0 ? 6 : new Date().getDay() - 1;
-    const daysElapsed = weeklyCals.slice(0, currentDayIdx + 1);
-    const currentAvg = daysElapsed.reduce((a, b) => a + b, 0) / (daysElapsed.length || 1);
+    const sunday = new Date(monday);
+    sunday.setDate(monday.getDate() + 6);
+    const rangeStr = `${monday.toLocaleDateString('en-US', { month: 'short', day: 'numeric' })} – ${sunday.toLocaleDateString('en-US', { month: 'short', day: 'numeric' })}`;
 
-    // Historical Stats (Excluding this week)
-    const historicalLogs = logs.filter(l => l.type === 'food' && l.date < mondayStr);
+    const daysWithData = weeklyCals.filter(v => v > 0).length || 1;
+    const avg = weeklyCals.reduce((a, b) => a + b, 0) / daysWithData;
+
+    // Historical Stats
+    const historicalLogs = logs.filter(l => l.type === 'food');
     const dailyTotals = Object.values(historicalLogs.reduce((acc, curr) => {
       acc[curr.date] = (acc[curr.date] || 0) + curr.calories;
       return acc;
@@ -117,7 +140,9 @@ function CalorieTracker() {
 
     return { 
       data: weeklyCals, 
-      avg: Math.round(currentAvg),
+      labels,
+      rangeStr,
+      avg: Math.round(avg),
       histHigh, histLow, histAvg: Math.round(histAvg)
     };
   };
@@ -177,9 +202,6 @@ function CalorieTracker() {
                 WebkitTextFillColor: 'initial'
               }}>PRO</span>
             </h2>
-            <p className="text-muted small mb-0 fw-bold text-uppercase mt-1" style={{ letterSpacing: '3px', fontSize: '0.6rem', opacity: '0.8' }}>
-              <i className="fas fa-check-circle me-1 text-success"></i> Premium Health Dashboard
-            </p>
           </div>
           <div className="text-end">
             <div className="shadow-sm border-0 p-2 px-3 text-center" style={{ 
@@ -196,6 +218,7 @@ function CalorieTracker() {
         </div>
       </header>
 
+      {/* Main Stats Card */}
       <div className="card shadow-sm mb-3 border-0 p-3">
         <div className="d-flex justify-content-between mb-2 fw-bold align-items-center text-dark">
           <input type="date" className="form-control form-control-sm w-auto" style={inputStyle} value={selectedDate} onChange={(e) => setSelectedDate(e.target.value)} />
@@ -216,6 +239,7 @@ function CalorieTracker() {
       </div>
 
       <div className="d-flex flex-column gap-3">
+        {/* Today's Food List */}
         <div className="card shadow-sm border-0">
           <div className="card-header bg-white fw-bold py-2 d-flex justify-content-between align-items-center">
               <span>Today's Food</span>
@@ -238,6 +262,7 @@ function CalorieTracker() {
           </div>
         </div>
 
+        {/* Quick Add Presets */}
         <div className="card shadow-sm p-3 border-0">
           <h6 className="fw-bold mb-3 small text-uppercase text-muted border-bottom pb-2">⚡ Quick Add</h6>
           <div style={{ maxHeight: '400px', overflowY: 'auto', paddingRight: '5px' }}>
@@ -249,8 +274,7 @@ function CalorieTracker() {
                 </div>
                 <div className="d-flex flex-wrap gap-2 ps-1">
                   {cat.items.map((item, i) => (
-                    <button key={i} onClick={() => handleAddFood(item.name, item.calories)} className="btn btn-sm btn-light border py-1 px-2 d-flex align-items-center shadow-sm quick-add-btn" style={{ fontSize: '0.75rem', borderRadius: '8px', backgroundColor: '#ffffff', color: '#333' }}>
-                      {item.icon && <i className={`${item.icon} me-1 text-muted`} style={{fontSize: '0.7rem'}}></i>}
+                    <button key={i} onClick={() => handleAddFood(item.name, item.calories)} className="btn btn-sm btn-light border py-1 px-2 shadow-sm" style={{ fontSize: '0.75rem', borderRadius: '8px', backgroundColor: '#ffffff' }}>
                       {item.name} <span className="ms-1 fw-bold text-primary">{item.calories}</span>
                     </button>
                   ))}
@@ -260,6 +284,7 @@ function CalorieTracker() {
           </div>
         </div>
 
+        {/* Manual Entry */}
         <div className="card shadow-sm p-3 border-0 bg-light">
           <h6 className="fw-bold mb-2 small text-uppercase text-muted">{editingId ? '📝 Update' : '🥗 Manual Entry'}</h6>
           <div className="d-flex gap-2 mb-2">
@@ -272,20 +297,29 @@ function CalorieTracker() {
           </div>
         </div>
 
+        {/* Weekly Log with Navigation */}
         <div className="card shadow-sm p-3 border-0">
           <div className="d-flex justify-content-between align-items-center mb-2">
-            <h6 className="fw-bold mb-0 small text-uppercase text-muted">Weekly Log</h6>
+            <div className="d-flex align-items-center gap-2">
+              <button className="btn btn-sm btn-outline-secondary border-0 p-1" onClick={() => changeWeek(-1)}>◀</button>
+              <div style={{lineHeight: '1.2'}}>
+                <h6 className="fw-bold mb-0 small text-uppercase text-muted">
+                  {isCurrentWeek() ? "Weekly Log" : "History"}
+                </h6>
+                <div style={{fontSize: '0.65rem', color: '#888'}}>{weekInfo.rangeStr}</div>
+              </div>
+              <button className="btn btn-sm btn-outline-secondary border-0 p-1" onClick={() => changeWeek(1)} disabled={isCurrentWeek()}>▶</button>
+            </div>
             <span className="badge bg-success-subtle text-success border border-success-subtle px-2 py-1" style={{fontSize: '0.75rem'}}>
-                This Week Avg: {weekInfo.avg} kcal
+                Avg: {weekInfo.avg} kcal
             </span>
           </div>
           <div style={{ height: '140px' }}>
             <Bar data={{
-                labels: ['M', 'T', 'W', 'T', 'F', 'S', 'S'],
+                labels: weekInfo.labels,
                 datasets: [{ label: 'Kcal', data: weekInfo.data, backgroundColor: weekInfo.data.map(val => val > DAILY_GOAL ? '#dc3545' : '#198754'), borderRadius: 4 }]
             }} options={{ maintainAspectRatio: false, plugins: { legend: { display: false } }, scales: { y: { beginAtZero: true } } }} />
           </div>
-          {/* WEEKLY HISTORICAL STATS */}
           <div className="d-flex justify-content-between mt-3 pt-2 border-top text-center">
             <div className="flex-fill">
               <div className="text-muted small text-uppercase fw-bold" style={{fontSize: '0.55rem'}}>Hist. High</div>
@@ -302,6 +336,7 @@ function CalorieTracker() {
           </div>
         </div>
 
+        {/* Weight Logging */}
         <div className="card shadow-sm p-3 border-0">
           <h6 className="fw-bold mb-2 small text-uppercase text-muted">⚖️ Log Weight</h6>
           <form onSubmit={logWeight} className="d-flex gap-2">
@@ -310,6 +345,7 @@ function CalorieTracker() {
           </form>
         </div>
 
+        {/* Weight Trend Chart */}
         <div className="card shadow-sm p-3 border-0">
           <div className="d-flex justify-content-between align-items-center mb-2">
             <h6 className="fw-bold mb-0 small text-uppercase text-muted">Weight Trend</h6>
