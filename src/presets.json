@@ -84,6 +84,12 @@
         "icon": "fas fa-leaf"
       },
       {
+        "name": "Pear",
+        "calories": 101,
+        "type": "pear",
+        "icon": "fas fa-lemon"
+      },
+      {
         "name": "Apple",
         "calories": 95,
         "type": "apple",
