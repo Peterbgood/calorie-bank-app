@@ -185,9 +185,17 @@ function CalorieTracker() {
             }}>
               HEALTH <span style={{ fontWeight: '400', color: '#0d6efd', WebkitTextFillColor: 'initial' }}>TRACKER</span>
               <span className="ms-2 badge shadow-sm" style={{ 
-                fontSize: '0.75rem', verticalAlign: 'middle', letterSpacing: '1px', backgroundColor: '#ffffff',
-                color: '#0d6efd', border: '1px solid #0d6efd', padding: '4px 8px', fontWeight: '900', display: 'inline-block'
-              }}>PRO</span>
+  fontSize: '0.75rem', 
+  verticalAlign: 'middle', 
+  letterSpacing: '1px', 
+  backgroundColor: '#0d6efd', // Blue background
+  color: '#ffffff',           // White text
+  WebkitTextFillColor: '#ffffff', // FORCED white text to override the transparent header
+  border: '1px solid #0d6efd', 
+  padding: '4px 8px', 
+  fontWeight: '900', 
+  display: 'inline-block'
+}}>PRO</span>
             </h2>
           </div>
           <div className="text-end">
@@ -286,38 +294,56 @@ function CalorieTracker() {
 
         {/* Weekly Log with Navigation */}
         <div className="card shadow-sm p-3 border-0">
-          <div className="d-flex justify-content-between align-items-center mb-2">
-            <div className="d-flex align-items-center gap-2">
-              <button className="btn btn-sm btn-outline-secondary border-0 p-1" onClick={() => changeWeek(-1)}>◀</button>
-              <div style={{lineHeight: '1.2'}}>
-                <h6 className="fw-bold mb-0 small text-uppercase text-muted">{isCurrentWeek() ? "Weekly Log" : "History"}</h6>
-                <div style={{fontSize: '0.65rem', color: '#888'}}>{weekInfo.rangeStr}</div>
-              </div>
-              <button className="btn btn-sm btn-outline-secondary border-0 p-1" onClick={() => changeWeek(1)} disabled={isCurrentWeek()}>▶</button>
-            </div>
-            <span className="badge bg-success-subtle text-success border border-success-subtle px-2 py-1" style={{fontSize: '0.75rem'}}>Avg: {weekInfo.avg} kcal</span>
-          </div>
-          <div style={{ height: '140px' }}>
-            <Bar data={{
-                labels: weekInfo.labels,
-                datasets: [{ label: 'Kcal', data: weekInfo.data, backgroundColor: weekInfo.data.map(val => val > DAILY_GOAL ? '#dc3545' : '#198754'), borderRadius: 4 }]
-            }} options={{ maintainAspectRatio: false, plugins: { legend: { display: false } }, scales: { y: { beginAtZero: true } } }} />
-          </div>
-          <div className="d-flex justify-content-between mt-3 pt-2 border-top text-center">
-            <div className="flex-fill">
-              <div className="text-muted small text-uppercase fw-bold" style={{fontSize: '0.55rem'}}>Hist. High</div>
-              <div className="fw-bold text-danger" style={{fontSize: '0.8rem'}}>{weekInfo.histHigh}</div>
-            </div>
-            <div className="flex-fill border-start border-end">
-              <div className="text-muted small text-uppercase fw-bold" style={{fontSize: '0.55rem'}}>Hist. Low</div>
-              <div className="fw-bold text-success" style={{fontSize: '0.8rem'}}>{weekInfo.histLow}</div>
-            </div>
-            <div className="flex-fill">
-              <div className="text-muted small text-uppercase fw-bold" style={{fontSize: '0.55rem'}}>Hist. Avg</div>
-              <div className="fw-bold text-primary" style={{fontSize: '0.8rem'}}>{weekInfo.histAvg}</div>
-            </div>
-          </div>
-        </div>
+  <div className="d-flex justify-content-between align-items-center mb-2">
+    <div className="d-flex align-items-center gap-2">
+      <button className="btn btn-sm btn-outline-secondary border-0 p-1" onClick={() => changeWeek(-1)}>◀</button>
+      <div style={{lineHeight: '1.2'}}>
+        <h6 className="fw-bold mb-0 small text-uppercase text-muted">{isCurrentWeek() ? "Weekly Log" : "History"}</h6>
+        <div style={{fontSize: '0.65rem', color: '#888'}}>{weekInfo.rangeStr}</div>
+      </div>
+      <button className="btn btn-sm btn-outline-secondary border-0 p-1" onClick={() => changeWeek(1)} disabled={isCurrentWeek()}>▶</button>
+    </div>
+    
+    <div className="text-end">
+      <span className={`badge border px-2 py-1 ${weekInfo.avg > 2000 ? 'bg-danger-subtle text-danger border-danger-subtle' : 'bg-success-subtle text-success border-success-subtle'}`} 
+            style={{fontSize: '0.75rem'}}>
+        Avg: {weekInfo.avg} kcal
+      </span>
+      <div className="text-muted fw-bold" style={{fontSize: '0.6rem', marginTop: '2px'}}>
+        {/* Directly summing the week's data for an accurate total */}
+        TOTAL: {weekInfo.data.reduce((a, b) => a + b, 0).toLocaleString()} / 14,000
+      </div>
+    </div>
+  </div>
+
+  <div style={{ height: '140px' }}>
+    <Bar data={{
+    labels: weekInfo.labels,
+    datasets: [{ 
+      label: 'Kcal', 
+      data: weekInfo.data, 
+      // This logic turns the individual bar red if it is 1701 or higher
+      backgroundColor: weekInfo.data.map(val => val > 1700 ? '#dc3545' : '#198754'), 
+      borderRadius: 4 
+    }]
+}} options={{ maintainAspectRatio: false, plugins: { legend: { display: false } }, scales: { y: { beginAtZero: true } } }} />
+  </div>
+
+  <div className="d-flex justify-content-between mt-3 pt-2 border-top text-center">
+    <div className="flex-fill">
+      <div className="text-muted small text-uppercase fw-bold" style={{fontSize: '0.55rem'}}>Hist. High</div>
+      <div className="fw-bold text-danger" style={{fontSize: '0.8rem'}}>{weekInfo.histHigh}</div>
+    </div>
+    <div className="flex-fill border-start border-end">
+      <div className="text-muted small text-uppercase fw-bold" style={{fontSize: '0.55rem'}}>Hist. Low</div>
+      <div className="fw-bold text-success" style={{fontSize: '0.8rem'}}>{weekInfo.histLow}</div>
+    </div>
+    <div className="flex-fill">
+      <div className="text-muted small text-uppercase fw-bold" style={{fontSize: '0.55rem'}}>Hist. Avg</div>
+      <div className="fw-bold text-primary" style={{fontSize: '0.8rem'}}>{weekInfo.histAvg}</div>
+    </div>
+  </div>
+</div>
 
         {/* Weight Logging */}
         <div className="card shadow-sm p-3 border-0">
