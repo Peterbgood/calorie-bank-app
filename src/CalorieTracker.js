@@ -10,7 +10,7 @@ function CalorieTracker() {
   
   const [logs, setLogs] = useState([]);
   const [selectedDate, setSelectedDate] = useState(getLocalDate());
-  const [viewDate, setViewDate] = useState(new Date()); // For Week Navigation
+  const [viewDate, setViewDate] = useState(new Date()); 
   const [food, setFood] = useState('');
   const [calories, setCalories] = useState('');
   const [weight, setWeight] = useState('');
@@ -18,18 +18,21 @@ function CalorieTracker() {
   const [isSyncing, setIsSyncing] = useState(false);
   
   const API_URL = "https://script.google.com/macros/s/AKfycbwKE4zeTe2ASxwqSH_Uw6xJX67yAFPy0aiRKnUXDMDnzXpDkWpxfGZb7KTBZVNLov0/exec";
-  const DAILY_GOAL = 1700;
+  
+  // UPDATED LOGIC: Mon-Thu = 1700, Fri-Sun = 2400. Total = 14,000.
+  const getDailyGoal = (dateString) => {
+    const day = new Date(dateString + 'T00:00:00').getDay();
+    return (day === 0 || day === 5 || day === 6) ? 2400 : 1700;
+  };
 
+  const CURRENT_DAILY_GOAL = getDailyGoal(selectedDate);
   const inputStyle = { fontSize: '16px' };
 
   useEffect(() => { fetchLogs(); }, []);
 
   const fetchLogs = () => {
     setIsSyncing(true);
-    fetch(`${API_URL}?t=${Date.now()}`, {
-      method: 'GET',
-      redirect: 'follow'
-    })
+    fetch(`${API_URL}?t=${Date.now()}`, { method: 'GET', redirect: 'follow' })
       .then(res => res.json())
       .then(data => {
         if (Array.isArray(data)) {
@@ -53,14 +56,12 @@ function CalorieTracker() {
       .catch(() => setIsSyncing(false));
   };
 
-  // Day Navigation Logic
   const changeDay = (direction) => {
     const current = new Date(selectedDate + 'T00:00:00'); 
     current.setDate(current.getDate() + direction);
     setSelectedDate(current.toLocaleDateString('en-CA'));
   };
 
-  // Week Navigation Logic
   const changeWeek = (direction) => {
     const newDate = new Date(viewDate);
     newDate.setDate(viewDate.getDate() + (direction * 7));
@@ -71,10 +72,8 @@ function CalorieTracker() {
     const today = new Date();
     const tDiff = today.getDate() - today.getDay() + (today.getDay() === 0 ? -6 : 1);
     const currentMonday = new Date(new Date(today).setDate(tDiff)).toLocaleDateString('en-CA');
-    
     const vDiff = viewDate.getDate() - viewDate.getDay() + (viewDate.getDay() === 0 ? -6 : 1);
     const viewMonday = new Date(new Date(viewDate).setDate(vDiff)).toLocaleDateString('en-CA');
-    
     return currentMonday === viewMonday;
   };
 
@@ -117,10 +116,12 @@ function CalorieTracker() {
     const monday = new Date(new Date(viewDate).setDate(diff));
     
     const labels = [];
+    const dates = [];
     const weeklyCals = [...Array(7)].map((_, i) => {
       const d = new Date(monday);
       d.setDate(monday.getDate() + i);
       const dStr = d.toLocaleDateString('en-CA');
+      dates.push(dStr);
       labels.push(d.toLocaleDateString('en-US', { weekday: 'short' }).charAt(0));
       return logs.filter(l => l.date === dStr && l.type === 'food').reduce((s, c) => s + c.calories, 0);
     });
@@ -128,38 +129,31 @@ function CalorieTracker() {
     const sunday = new Date(monday);
     sunday.setDate(monday.getDate() + 6);
     const rangeStr = `${monday.toLocaleDateString('en-US', { month: 'short', day: 'numeric' })} – ${sunday.toLocaleDateString('en-US', { month: 'short', day: 'numeric' })}`;
-
     const daysWithData = weeklyCals.filter(v => v > 0).length || 1;
     const avg = weeklyCals.reduce((a, b) => a + b, 0) / daysWithData;
-
     const historicalLogs = logs.filter(l => l.type === 'food');
     const dailyTotals = Object.values(historicalLogs.reduce((acc, curr) => {
       acc[curr.date] = (acc[curr.date] || 0) + curr.calories;
       return acc;
     }, {}));
 
-    const histHigh = dailyTotals.length ? Math.max(...dailyTotals) : 0;
-    const histLow = dailyTotals.length ? Math.min(...dailyTotals) : 0;
-    const histAvg = dailyTotals.length ? (dailyTotals.reduce((a, b) => a + b, 0) / dailyTotals.length) : 0;
-
     return { 
-      data: weeklyCals, labels, rangeStr, avg: Math.round(avg),
-      histHigh, histLow, histAvg: Math.round(histAvg)
+      data: weeklyCals, labels, dates, rangeStr, avg: Math.round(avg),
+      histHigh: dailyTotals.length ? Math.max(...dailyTotals) : 0,
+      histLow: dailyTotals.length ? Math.min(...dailyTotals) : 0,
+      histAvg: dailyTotals.length ? Math.round(dailyTotals.reduce((a, b) => a + b, 0) / dailyTotals.length) : 0
     };
   };
 
   const getWeightStats = () => {
     const weights = logs.filter(l => l.type === 'weight' && l.weight > 0).map(l => l.weight);
     if (weights.length === 0) return { high: 0, low: 0, avg: 0 };
-    const high = Math.max(...weights);
-    const low = Math.min(...weights);
     const avg = weights.reduce((a, b) => a + b, 0) / weights.length;
-    return { high, low, avg: avg.toFixed(1) };
+    return { high: Math.max(...weights), low: Math.min(...weights), avg: avg.toFixed(1) };
   };
 
   const weekInfo = getWeekData();
   const weightStats = getWeightStats();
-
   const dailyLogs = logs
     .filter(l => l.date === selectedDate && l.type === 'food')
     .sort((a, b) => {
@@ -185,17 +179,9 @@ function CalorieTracker() {
             }}>
               HEALTH <span style={{ fontWeight: '400', color: '#0d6efd', WebkitTextFillColor: 'initial' }}>TRACKER</span>
               <span className="ms-2 badge shadow-sm" style={{ 
-  fontSize: '0.75rem', 
-  verticalAlign: 'middle', 
-  letterSpacing: '1px', 
-  backgroundColor: '#0d6efd', // Blue background
-  color: '#ffffff',           // White text
-  WebkitTextFillColor: '#ffffff', // FORCED white text to override the transparent header
-  border: '1px solid #0d6efd', 
-  padding: '4px 8px', 
-  fontWeight: '900', 
-  display: 'inline-block'
-}}>PRO</span>
+                fontSize: '0.75rem', verticalAlign: 'middle', letterSpacing: '1px', backgroundColor: '#0d6efd',
+                color: '#ffffff', WebkitTextFillColor: '#ffffff', border: '1px solid #0d6efd', padding: '4px 8px', fontWeight: '900', display: 'inline-block'
+              }}>PRO</span>
             </h2>
           </div>
           <div className="text-end">
@@ -209,7 +195,7 @@ function CalorieTracker() {
         </div>
       </header>
 
-      {/* Main Stats Card with Day Toggles */}
+      {/* Main Stats Card */}
       <div className="card shadow-sm mb-3 border-0 p-3">
         <div className="d-flex justify-content-between mb-2 fw-bold align-items-center text-dark">
           <div className="d-flex align-items-center gap-1">
@@ -218,9 +204,9 @@ function CalorieTracker() {
             <button className="btn btn-sm btn-outline-secondary border-0 p-1" onClick={() => changeDay(1)}>▶</button>
           </div>
           <div className="text-end" style={{lineHeight: '1'}}>
-             <span className="small">{usedToday} / {DAILY_GOAL} kcal</span><br/>
-             <span className={`fw-bold`} style={{fontSize: '0.75rem', color: (DAILY_GOAL - usedToday) < 0 ? '#dc3545' : '#198754'}}>
-                {DAILY_GOAL - usedToday >= 0 ? `${DAILY_GOAL - usedToday} left` : `${Math.abs(DAILY_GOAL - usedToday)} over`}
+             <span className="small">{usedToday} / {CURRENT_DAILY_GOAL} kcal</span><br/>
+             <span className={`fw-bold`} style={{fontSize: '0.75rem', color: (CURRENT_DAILY_GOAL - usedToday) < 0 ? '#dc3545' : '#198754'}}>
+                {CURRENT_DAILY_GOAL - usedToday >= 0 ? `${CURRENT_DAILY_GOAL - usedToday} left` : `${Math.abs(CURRENT_DAILY_GOAL - usedToday)} over`}
              </span>
              <br/>
              <button className="btn btn-link btn-sm p-0 text-decoration-none" style={{fontSize: '0.7rem'}} onClick={fetchLogs} disabled={isSyncing}>
@@ -229,7 +215,7 @@ function CalorieTracker() {
           </div>
         </div>
         <div className="progress" style={{ height: '10px', borderRadius: '10px' }}>
-          <div className={`progress-bar progress-bar-striped ${usedToday > DAILY_GOAL ? 'bg-danger' : 'bg-success'}`} style={{ width: `${Math.min((usedToday/DAILY_GOAL)*100, 100)}%` }}></div>
+          <div className={`progress-bar progress-bar-striped ${usedToday > CURRENT_DAILY_GOAL ? 'bg-danger' : 'bg-success'}`} style={{ width: `${Math.min((usedToday/CURRENT_DAILY_GOAL)*100, 100)}%` }}></div>
         </div>
       </div>
 
@@ -292,58 +278,87 @@ function CalorieTracker() {
           </div>
         </div>
 
-        {/* Weekly Log with Navigation */}
+        {/* Weekly Log Card */}
         <div className="card shadow-sm p-3 border-0">
-  <div className="d-flex justify-content-between align-items-center mb-2">
-    <div className="d-flex align-items-center gap-2">
-      <button className="btn btn-sm btn-outline-secondary border-0 p-1" onClick={() => changeWeek(-1)}>◀</button>
-      <div style={{lineHeight: '1.2'}}>
-        <h6 className="fw-bold mb-0 small text-uppercase text-muted">{isCurrentWeek() ? "Weekly Log" : "History"}</h6>
-        <div style={{fontSize: '0.65rem', color: '#888'}}>{weekInfo.rangeStr}</div>
-      </div>
-      <button className="btn btn-sm btn-outline-secondary border-0 p-1" onClick={() => changeWeek(1)} disabled={isCurrentWeek()}>▶</button>
-    </div>
-    
-    <div className="text-end">
-      <span className={`badge border px-2 py-1 ${weekInfo.avg > 2000 ? 'bg-danger-subtle text-danger border-danger-subtle' : 'bg-success-subtle text-success border-success-subtle'}`} 
-            style={{fontSize: '0.75rem'}}>
-        Avg: {weekInfo.avg} kcal
-      </span>
-      <div className="text-muted fw-bold" style={{fontSize: '0.6rem', marginTop: '2px'}}>
-        {/* Directly summing the week's data for an accurate total */}
-        TOTAL: {weekInfo.data.reduce((a, b) => a + b, 0).toLocaleString()} / 14,000
-      </div>
-    </div>
-  </div>
+          <div className="d-flex justify-content-between align-items-center mb-2">
+            <div className="d-flex align-items-center gap-2">
+              <button className="btn btn-sm btn-outline-secondary border-0 p-1" onClick={() => changeWeek(-1)}>◀</button>
+              <div style={{lineHeight: '1.2'}}>
+                <h6 className="fw-bold mb-0 small text-uppercase text-muted">{isCurrentWeek() ? "Weekly Log" : "History"}</h6>
+                <div style={{fontSize: '0.65rem', color: '#888'}}>{weekInfo.rangeStr}</div>
+              </div>
+              <button className="btn btn-sm btn-outline-secondary border-0 p-1" onClick={() => changeWeek(1)} disabled={isCurrentWeek()}>▶</button>
+            </div>
+            
+            <div className="text-end">
+              <span className={`badge border px-2 py-1 ${weekInfo.avg > 2000 ? 'bg-danger-subtle text-danger border-danger-subtle' : 'bg-success-subtle text-success border-success-subtle'}`} 
+                    style={{fontSize: '0.75rem'}}>
+                Avg: {weekInfo.avg} kcal
+              </span>
+              <div className="text-muted fw-bold" style={{fontSize: '0.6rem', marginTop: '2px'}}>
+                TOTAL: {weekInfo.data.reduce((a, b) => a + b, 0).toLocaleString()} / 14,000
+              </div>
+            </div>
+          </div>
 
-  <div style={{ height: '140px' }}>
-    <Bar data={{
-    labels: weekInfo.labels,
-    datasets: [{ 
-      label: 'Kcal', 
-      data: weekInfo.data, 
-      // This logic turns the individual bar red if it is 1701 or higher
-      backgroundColor: weekInfo.data.map(val => val > 1700 ? '#dc3545' : '#198754'), 
-      borderRadius: 4 
-    }]
-}} options={{ maintainAspectRatio: false, plugins: { legend: { display: false } }, scales: { y: { beginAtZero: true } } }} />
-  </div>
+          {/* PACE Goal Box */}
+          <div className="mb-3 p-2 rounded text-center" style={{ backgroundColor: '#f8f9fa', border: '1px solid #eee', fontSize: '0.8rem' }}>
+            {(() => {
+              const currentTotal = weekInfo.data.reduce((a, b) => a + b, 0);
+              let paceGoal = 0;
+              weekInfo.data.forEach((val, idx) => {
+                if (val > 0) paceGoal += getDailyGoal(weekInfo.dates[idx]);
+              });
 
-  <div className="d-flex justify-content-between mt-3 pt-2 border-top text-center">
-    <div className="flex-fill">
-      <div className="text-muted small text-uppercase fw-bold" style={{fontSize: '0.55rem'}}>Hist. High</div>
-      <div className="fw-bold text-danger" style={{fontSize: '0.8rem'}}>{weekInfo.histHigh}</div>
-    </div>
-    <div className="flex-fill border-start border-end">
-      <div className="text-muted small text-uppercase fw-bold" style={{fontSize: '0.55rem'}}>Hist. Low</div>
-      <div className="fw-bold text-success" style={{fontSize: '0.8rem'}}>{weekInfo.histLow}</div>
-    </div>
-    <div className="flex-fill">
-      <div className="text-muted small text-uppercase fw-bold" style={{fontSize: '0.55rem'}}>Hist. Avg</div>
-      <div className="fw-bold text-primary" style={{fontSize: '0.8rem'}}>{weekInfo.histAvg}</div>
-    </div>
-  </div>
-</div>
+              const diff = paceGoal - currentTotal;
+              const isOver = diff < 0;
+
+              return (
+                <div className="d-flex flex-column">
+                  <span className={`fw-bold ${isOver ? 'text-danger' : 'text-success'}`}>
+                    {isOver 
+                      ? `⚠️ ${Math.abs(diff).toLocaleString()} kcal OVER PACE` 
+                      : `✅ ${diff.toLocaleString()} kcal UNDER PACE`
+                    }
+                  </span>
+                  <small className="text-muted" style={{fontSize: '0.65rem'}}>
+                    (Goal for logged days: {paceGoal.toLocaleString()} kcal)
+                  </small>
+                </div>
+              );
+            })()}
+          </div>
+
+          <div style={{ height: '140px' }}>
+            <Bar data={{
+                labels: weekInfo.labels,
+                datasets: [{ 
+                  label: 'Kcal', 
+                  data: weekInfo.data, 
+                  backgroundColor: weekInfo.data.map((val, index) => {
+                    const limit = getDailyGoal(weekInfo.dates[index]);
+                    return val > limit ? '#dc3545' : '#198754';
+                  }), 
+                  borderRadius: 4 
+                }]
+            }} options={{ maintainAspectRatio: false, plugins: { legend: { display: false } }, scales: { y: { beginAtZero: true } } }} />
+          </div>
+
+          <div className="d-flex justify-content-between mt-3 pt-2 border-top text-center">
+            <div className="flex-fill">
+              <div className="text-muted small text-uppercase fw-bold" style={{fontSize: '0.55rem'}}>Hist. High</div>
+              <div className="fw-bold text-danger" style={{fontSize: '0.8rem'}}>{weekInfo.histHigh}</div>
+            </div>
+            <div className="flex-fill border-start border-end">
+              <div className="text-muted small text-uppercase fw-bold" style={{fontSize: '0.55rem'}}>Hist. Low</div>
+              <div className="fw-bold text-success" style={{fontSize: '0.8rem'}}>{weekInfo.histLow}</div>
+            </div>
+            <div className="flex-fill">
+              <div className="text-muted small text-uppercase fw-bold" style={{fontSize: '0.55rem'}}>Hist. Avg</div>
+              <div className="fw-bold text-primary" style={{fontSize: '0.8rem'}}>{weekInfo.histAvg}</div>
+            </div>
+          </div>
+        </div>
 
         {/* Weight Logging */}
         <div className="card shadow-sm p-3 border-0">
