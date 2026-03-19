@@ -26,7 +26,6 @@ function CalorieTracker() {
 
   const fetchLogs = () => {
     setIsSyncing(true);
-    // REMOVED CORS PROXY - Using direct fetch with redirect follow
     fetch(`${API_URL}?t=${Date.now()}`, {
       method: 'GET',
       redirect: 'follow'
@@ -52,6 +51,13 @@ function CalorieTracker() {
         setIsSyncing(false);
       })
       .catch(() => setIsSyncing(false));
+  };
+
+  // Day Navigation Logic
+  const changeDay = (direction) => {
+    const current = new Date(selectedDate + 'T00:00:00'); 
+    current.setDate(current.getDate() + direction);
+    setSelectedDate(current.toLocaleDateString('en-CA'));
   };
 
   // Week Navigation Logic
@@ -109,8 +115,7 @@ function CalorieTracker() {
     const day = viewDate.getDay();
     const diff = viewDate.getDate() - day + (day === 0 ? -6 : 1);
     const monday = new Date(new Date(viewDate).setDate(diff));
-    const mondayStr = monday.toLocaleDateString('en-CA');
-
+    
     const labels = [];
     const weeklyCals = [...Array(7)].map((_, i) => {
       const d = new Date(monday);
@@ -127,7 +132,6 @@ function CalorieTracker() {
     const daysWithData = weeklyCals.filter(v => v > 0).length || 1;
     const avg = weeklyCals.reduce((a, b) => a + b, 0) / daysWithData;
 
-    // Historical Stats
     const historicalLogs = logs.filter(l => l.type === 'food');
     const dailyTotals = Object.values(historicalLogs.reduce((acc, curr) => {
       acc[curr.date] = (acc[curr.date] || 0) + curr.calories;
@@ -139,10 +143,7 @@ function CalorieTracker() {
     const histAvg = dailyTotals.length ? (dailyTotals.reduce((a, b) => a + b, 0) / dailyTotals.length) : 0;
 
     return { 
-      data: weeklyCals, 
-      labels,
-      rangeStr,
-      avg: Math.round(avg),
+      data: weeklyCals, labels, rangeStr, avg: Math.round(avg),
       histHigh, histLow, histAvg: Math.round(histAvg)
     };
   };
@@ -179,36 +180,18 @@ function CalorieTracker() {
         <div className="d-flex justify-content-between align-items-center">
           <div>
             <h2 className="fw-black mb-0" style={{ 
-              letterSpacing: '-1.5px', 
-              background: 'linear-gradient(135deg, #1e3c72 0%, #2a5298 100%)',
-              WebkitBackgroundClip: 'text',
-              WebkitTextFillColor: 'transparent',
-              fontSize: '2.4rem',
-              fontWeight: '900',
-              lineHeight: '1'
+              letterSpacing: '-1.5px', background: 'linear-gradient(135deg, #1e3c72 0%, #2a5298 100%)',
+              WebkitBackgroundClip: 'text', WebkitTextFillColor: 'transparent', fontSize: '2.4rem', fontWeight: '900', lineHeight: '1'
             }}>
               HEALTH <span style={{ fontWeight: '400', color: '#0d6efd', WebkitTextFillColor: 'initial' }}>TRACKER</span>
               <span className="ms-2 badge shadow-sm" style={{ 
-                fontSize: '0.75rem', 
-                verticalAlign: 'middle', 
-                letterSpacing: '1px',
-                backgroundColor: '#ffffff',
-                color: '#0d6efd',
-                border: '1px solid #0d6efd',
-                padding: '4px 8px',
-                fontWeight: '900',
-                display: 'inline-block',
-                textFillColor: 'initial',
-                WebkitTextFillColor: 'initial'
+                fontSize: '0.75rem', verticalAlign: 'middle', letterSpacing: '1px', backgroundColor: '#ffffff',
+                color: '#0d6efd', border: '1px solid #0d6efd', padding: '4px 8px', fontWeight: '900', display: 'inline-block'
               }}>PRO</span>
             </h2>
           </div>
           <div className="text-end">
-            <div className="shadow-sm border-0 p-2 px-3 text-center" style={{ 
-              borderRadius: '15px', 
-              background: 'linear-gradient(145deg, #ffffff, #f8f9fa)',
-              minWidth: '100px'
-            }}>
+            <div className="shadow-sm border-0 p-2 px-3 text-center" style={{ borderRadius: '15px', background: 'linear-gradient(145deg, #ffffff, #f8f9fa)', minWidth: '100px' }}>
               <div className="text-muted text-uppercase fw-bold" style={{ fontSize: '0.55rem', letterSpacing: '1px' }}>Current Weight</div>
               <div className="h5 mb-0 fw-black text-dark">
                 {currentWeight} <span className="small text-muted" style={{fontSize: '0.7rem'}}>lbs</span>
@@ -218,10 +201,14 @@ function CalorieTracker() {
         </div>
       </header>
 
-      {/* Main Stats Card */}
+      {/* Main Stats Card with Day Toggles */}
       <div className="card shadow-sm mb-3 border-0 p-3">
         <div className="d-flex justify-content-between mb-2 fw-bold align-items-center text-dark">
-          <input type="date" className="form-control form-control-sm w-auto" style={inputStyle} value={selectedDate} onChange={(e) => setSelectedDate(e.target.value)} />
+          <div className="d-flex align-items-center gap-1">
+            <button className="btn btn-sm btn-outline-secondary border-0 p-1" onClick={() => changeDay(-1)}>◀</button>
+            <input type="date" className="form-control form-control-sm w-auto border-0 fw-bold shadow-none" style={{...inputStyle, backgroundColor: 'transparent'}} value={selectedDate} onChange={(e) => setSelectedDate(e.target.value)} />
+            <button className="btn btn-sm btn-outline-secondary border-0 p-1" onClick={() => changeDay(1)}>▶</button>
+          </div>
           <div className="text-end" style={{lineHeight: '1'}}>
              <span className="small">{usedToday} / {DAILY_GOAL} kcal</span><br/>
              <span className={`fw-bold`} style={{fontSize: '0.75rem', color: (DAILY_GOAL - usedToday) < 0 ? '#dc3545' : '#198754'}}>
@@ -303,16 +290,12 @@ function CalorieTracker() {
             <div className="d-flex align-items-center gap-2">
               <button className="btn btn-sm btn-outline-secondary border-0 p-1" onClick={() => changeWeek(-1)}>◀</button>
               <div style={{lineHeight: '1.2'}}>
-                <h6 className="fw-bold mb-0 small text-uppercase text-muted">
-                  {isCurrentWeek() ? "Weekly Log" : "History"}
-                </h6>
+                <h6 className="fw-bold mb-0 small text-uppercase text-muted">{isCurrentWeek() ? "Weekly Log" : "History"}</h6>
                 <div style={{fontSize: '0.65rem', color: '#888'}}>{weekInfo.rangeStr}</div>
               </div>
               <button className="btn btn-sm btn-outline-secondary border-0 p-1" onClick={() => changeWeek(1)} disabled={isCurrentWeek()}>▶</button>
             </div>
-            <span className="badge bg-success-subtle text-success border border-success-subtle px-2 py-1" style={{fontSize: '0.75rem'}}>
-                Avg: {weekInfo.avg} kcal
-            </span>
+            <span className="badge bg-success-subtle text-success border border-success-subtle px-2 py-1" style={{fontSize: '0.75rem'}}>Avg: {weekInfo.avg} kcal</span>
           </div>
           <div style={{ height: '140px' }}>
             <Bar data={{
@@ -350,18 +333,9 @@ function CalorieTracker() {
           <div className="d-flex justify-content-between align-items-center mb-2">
             <h6 className="fw-bold mb-0 small text-uppercase text-muted">Weight Trend</h6>
             <div className="d-flex gap-3 text-end">
-              <div>
-                <span className="text-muted small text-uppercase fw-bold me-1" style={{fontSize: '0.5rem'}}>High</span>
-                <span className="fw-bold text-dark" style={{fontSize: '0.75rem'}}>{weightStats.high}</span>
-              </div>
-              <div>
-                <span className="text-muted small text-uppercase fw-bold me-1" style={{fontSize: '0.5rem'}}>Low</span>
-                <span className="fw-bold text-dark" style={{fontSize: '0.75rem'}}>{weightStats.low}</span>
-              </div>
-              <div>
-                <span className="text-muted small text-uppercase fw-bold me-1" style={{fontSize: '0.5rem'}}>Avg</span>
-                <span className="fw-bold text-dark" style={{fontSize: '0.75rem'}}>{weightStats.avg}</span>
-              </div>
+              <div><span className="text-muted small text-uppercase fw-bold me-1" style={{fontSize: '0.5rem'}}>High</span><span className="fw-bold text-dark" style={{fontSize: '0.75rem'}}>{weightStats.high}</span></div>
+              <div><span className="text-muted small text-uppercase fw-bold me-1" style={{fontSize: '0.5rem'}}>Low</span><span className="fw-bold text-dark" style={{fontSize: '0.75rem'}}>{weightStats.low}</span></div>
+              <div><span className="text-muted small text-uppercase fw-bold me-1" style={{fontSize: '0.5rem'}}>Avg</span><span className="fw-bold text-dark" style={{fontSize: '0.75rem'}}>{weightStats.avg}</span></div>
             </div>
           </div>
           <div style={{ height: '140px' }}>
