@@ -6,7 +6,7 @@
     "items": [
       {
         "name": "Coffee",
-        "calories": 40,
+        "calories": 160,
         "type": "coffee",
         "icon": "fas fa-mug-hot"
       },
