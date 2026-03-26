@@ -234,7 +234,7 @@ function CalorieTracker() {
                 <div key={l.id} className="list-group-item d-flex justify-content-between align-items-center py-2">
                   <div style={{lineHeight: '1.1'}}><strong>{l.food}</strong><br/><small className="text-muted">{l.calories} kcal</small></div>
                   <div className="d-flex">
-                    <button onClick={() => {setEditingId(l.id); setFood(l.food); setCalories(l.calories); window.scrollTo(0, 500);}} className="btn btn-sm text-info px-2">Edit</button>
+                    <button onClick={() => {setEditingId(l.id); setFood(l.food); setCalories(l.calories); window.scrollTo(0, 500);}} className="btn btn-sm text-primary px-2">Edit</button>
                     <button onClick={() => removeEntry(l.id)} className="btn btn-sm text-danger px-2">Del</button>
                   </div>
                 </div>
