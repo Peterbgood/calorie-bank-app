@@ -369,23 +369,58 @@ function CalorieTracker() {
           </form>
         </div>
 
-        {/* Weight Trend Chart */}
-        <div className="card shadow-sm p-3 border-0">
-          <div className="d-flex justify-content-between align-items-center mb-2">
-            <h6 className="fw-bold mb-0 small text-uppercase text-muted">Weight Trend</h6>
-            <div className="d-flex gap-3 text-end">
-              <div><span className="text-muted small text-uppercase fw-bold me-1" style={{fontSize: '0.5rem'}}>High</span><span className="fw-bold text-dark" style={{fontSize: '0.75rem'}}>{weightStats.high}</span></div>
-              <div><span className="text-muted small text-uppercase fw-bold me-1" style={{fontSize: '0.5rem'}}>Low</span><span className="fw-bold text-dark" style={{fontSize: '0.75rem'}}>{weightStats.low}</span></div>
-              <div><span className="text-muted small text-uppercase fw-bold me-1" style={{fontSize: '0.5rem'}}>Avg</span><span className="fw-bold text-dark" style={{fontSize: '0.75rem'}}>{weightStats.avg}</span></div>
-            </div>
-          </div>
-          <div style={{ height: '140px' }}>
-            <Line data={{
-              labels: weightTrendData.slice(-7).map(l => l.date.split('-').slice(1).join('/')),
-              datasets: [{ label: 'Weight Trend', data: weightTrendData.slice(-7).map(l => l.weight), borderColor: '#0d6efd', tension: 0.3, pointRadius: 4 }]
-            }} options={{ maintainAspectRatio: false, plugins: { legend: { display: false } } }} />
-          </div>
-        </div>
+      {/* Weight Trend Chart */}
+<div className="card shadow-sm p-3 border-0">
+  <div className="d-flex justify-content-between align-items-center mb-2">
+    <h6 className="fw-bold mb-0 small text-uppercase text-muted">Weight Trend (Last 90 Days)</h6>
+    <div className="d-flex gap-3 text-end">
+      <div><span className="text-muted small text-uppercase fw-bold me-1" style={{fontSize: '0.5rem'}}>High</span><span className="fw-bold text-dark" style={{fontSize: '0.75rem'}}>{weightStats.high}</span></div>
+      <div><span className="text-muted small text-uppercase fw-bold me-1" style={{fontSize: '0.5rem'}}>Low</span><span className="fw-bold text-dark" style={{fontSize: '0.75rem'}}>{weightStats.low}</span></div>
+      <div><span className="text-muted small text-uppercase fw-bold me-1" style={{fontSize: '0.5rem'}}>Avg</span><span className="fw-bold text-dark" style={{fontSize: '0.75rem'}}>{weightStats.avg}</span></div>
+    </div>
+  </div>
+  <div style={{ height: '140px' }}>
+    <Line 
+      data={{
+        labels: weightTrendData
+          .filter(l => {
+            const entryDate = new Date(l.date);
+            const ninetyDaysAgo = new Date();
+            ninetyDaysAgo.setDate(ninetyDaysAgo.getDate() - 90);
+            return entryDate >= ninetyDaysAgo;
+          })
+          .map(l => l.date.split('-').slice(1).join('/')),
+        datasets: [{ 
+          label: 'Weight Trend', 
+          data: weightTrendData
+            .filter(l => {
+              const entryDate = new Date(l.date);
+              const ninetyDaysAgo = new Date();
+              ninetyDaysAgo.setDate(ninetyDaysAgo.getDate() - 90);
+              return entryDate >= ninetyDaysAgo;
+            })
+            .map(l => l.weight), 
+          borderColor: '#0d6efd', 
+          tension: 0.3, 
+          pointRadius: weightTrendData.length > 30 ? 0 : 4 // Hides dots if there are too many points to keep it clean
+        }]
+      }} 
+      options={{ 
+        maintainAspectRatio: false, 
+        plugins: { legend: { display: false } },
+        scales: {
+          x: {
+            ticks: {
+              maxRotation: 0,
+              autoSkip: true,
+              maxTicksLimit: 8 // Prevents the X-axis from getting cluttered with 90 dates
+            }
+          }
+        }
+      }} 
+    />
+  </div>
+</div>
       </div>
     </div>
   );
