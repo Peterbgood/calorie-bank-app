@@ -1,9 +1,10 @@
 import React, { useState, useEffect } from 'react';
-import { Chart as ChartJS, CategoryScale, LinearScale, BarElement, Title, Tooltip, Legend, LineElement, PointElement } from 'chart.js';
+import { Chart as ChartJS, CategoryScale, LinearScale, BarElement, Title, Tooltip, Legend, LineElement, PointElement, Filler } from 'chart.js';
 import { Bar, Line } from 'react-chartjs-2';
 import FOOD_PRESETS from './presets.json';
 
-ChartJS.register(CategoryScale, LinearScale, BarElement, LineElement, PointElement, Title, Tooltip, Legend);
+// Register Filler for the area chart effect
+ChartJS.register(CategoryScale, LinearScale, BarElement, LineElement, PointElement, Title, Tooltip, Legend, Filler);
 
 function CalorieTracker() {
   const getLocalDate = () => new Date().toLocaleDateString('en-CA');
@@ -17,9 +18,11 @@ function CalorieTracker() {
   const [editingId, setEditingId] = useState(null);
   const [isSyncing, setIsSyncing] = useState(false);
   
+  // NEW: State for weight chart range toggle
+  const [weightRange, setWeightRange] = useState('3m'); 
+  
   const API_URL = "https://script.google.com/macros/s/AKfycbwKE4zeTe2ASxwqSH_Uw6xJX67yAFPy0aiRKnUXDMDnzXpDkWpxfGZb7KTBZVNLov0/exec";
   
-  // UPDATED LOGIC: Mon-Thu = 1700, Fri-Sun = 2400. Total = 14,000.
   const getDailyGoal = (dateString) => {
     const day = new Date(dateString + 'T00:00:00').getDay();
     return (day === 0 || day === 5 || day === 6) ? 2400 : 1700;
@@ -165,8 +168,25 @@ function CalorieTracker() {
     });
 
   const usedToday = dailyLogs.reduce((a, c) => a + c.calories, 0);
-  const weightTrendData = logs.filter(l => l.type === 'weight').sort((a, b) => new Date(a.date) - new Date(b.date));
-  const currentWeight = weightTrendData.length > 0 ? weightTrendData[weightTrendData.length - 1].weight : '--';
+  
+  // LOGIC FOR FILTERED WEIGHT CHART
+  const allWeightEntries = logs.filter(l => l.type === 'weight').sort((a, b) => new Date(a.date) - new Date(b.date));
+  const currentWeight = allWeightEntries.length > 0 ? allWeightEntries[allWeightEntries.length - 1].weight : '--';
+
+  const getFilteredWeightData = () => {
+    const now = new Date();
+    let daysToSubtract;
+    if (weightRange === '1m') daysToSubtract = 30;
+    else if (weightRange === '3m') daysToSubtract = 90;
+    else if (weightRange === '1y') daysToSubtract = 365;
+    else daysToSubtract = 90;
+
+    const cutoffDate = new Date();
+    cutoffDate.setDate(now.getDate() - daysToSubtract);
+    return allWeightEntries.filter(l => new Date(l.date) >= cutoffDate);
+  };
+
+  const weightTrendData = getFilteredWeightData();
 
   return (
     <div className="container py-3" style={{ maxWidth: '950px' }}>
@@ -301,7 +321,6 @@ function CalorieTracker() {
             </div>
           </div>
 
-          {/* PACE Goal Box */}
           <div className="mb-3 p-2 rounded text-center" style={{ backgroundColor: '#f8f9fa', border: '1px solid #eee', fontSize: '0.8rem' }}>
             {(() => {
               const currentTotal = weekInfo.data.reduce((a, b) => a + b, 0);
@@ -309,21 +328,14 @@ function CalorieTracker() {
               weekInfo.data.forEach((val, idx) => {
                 if (val > 0) paceGoal += getDailyGoal(weekInfo.dates[idx]);
               });
-
               const diff = paceGoal - currentTotal;
               const isOver = diff < 0;
-
               return (
                 <div className="d-flex flex-column">
                   <span className={`fw-bold ${isOver ? 'text-danger' : 'text-success'}`}>
-                    {isOver 
-                      ? `⚠️ ${Math.abs(diff).toLocaleString()} kcal OVER PACE` 
-                      : `✅ ${diff.toLocaleString()} kcal UNDER PACE`
-                    }
+                    {isOver ? `⚠️ ${Math.abs(diff).toLocaleString()} kcal OVER PACE` : `✅ ${diff.toLocaleString()} kcal UNDER PACE`}
                   </span>
-                  <small className="text-muted" style={{fontSize: '0.65rem'}}>
-                    (Goal for logged days: {paceGoal.toLocaleString()} kcal)
-                  </small>
+                  <small className="text-muted" style={{fontSize: '0.65rem'}}>(Goal for logged days: {paceGoal.toLocaleString()} kcal)</small>
                 </div>
               );
             })()}
@@ -369,58 +381,59 @@ function CalorieTracker() {
           </form>
         </div>
 
-      {/* Weight Trend Chart */}
-<div className="card shadow-sm p-3 border-0">
-  <div className="d-flex justify-content-between align-items-center mb-2">
-    <h6 className="fw-bold mb-0 small text-uppercase text-muted">Weight Trend (Last 90 Days)</h6>
-    <div className="d-flex gap-3 text-end">
-      <div><span className="text-muted small text-uppercase fw-bold me-1" style={{fontSize: '0.5rem'}}>High</span><span className="fw-bold text-dark" style={{fontSize: '0.75rem'}}>{weightStats.high}</span></div>
-      <div><span className="text-muted small text-uppercase fw-bold me-1" style={{fontSize: '0.5rem'}}>Low</span><span className="fw-bold text-dark" style={{fontSize: '0.75rem'}}>{weightStats.low}</span></div>
-      <div><span className="text-muted small text-uppercase fw-bold me-1" style={{fontSize: '0.5rem'}}>Avg</span><span className="fw-bold text-dark" style={{fontSize: '0.75rem'}}>{weightStats.avg}</span></div>
-    </div>
-  </div>
-  <div style={{ height: '140px' }}>
-    <Line 
-      data={{
-        labels: weightTrendData
-          .filter(l => {
-            const entryDate = new Date(l.date);
-            const ninetyDaysAgo = new Date();
-            ninetyDaysAgo.setDate(ninetyDaysAgo.getDate() - 90);
-            return entryDate >= ninetyDaysAgo;
-          })
-          .map(l => l.date.split('-').slice(1).join('/')),
-        datasets: [{ 
-          label: 'Weight Trend', 
-          data: weightTrendData
-            .filter(l => {
-              const entryDate = new Date(l.date);
-              const ninetyDaysAgo = new Date();
-              ninetyDaysAgo.setDate(ninetyDaysAgo.getDate() - 90);
-              return entryDate >= ninetyDaysAgo;
-            })
-            .map(l => l.weight), 
-          borderColor: '#0d6efd', 
-          tension: 0.3, 
-          pointRadius: weightTrendData.length > 30 ? 0 : 4 // Hides dots if there are too many points to keep it clean
-        }]
-      }} 
-      options={{ 
-        maintainAspectRatio: false, 
-        plugins: { legend: { display: false } },
-        scales: {
-          x: {
-            ticks: {
-              maxRotation: 0,
-              autoSkip: true,
-              maxTicksLimit: 8 // Prevents the X-axis from getting cluttered with 90 dates
-            }
-          }
-        }
-      }} 
-    />
-  </div>
-</div>
+        {/* Weight Trend Chart WITH TOGGLE */}
+        <div className="card shadow-sm p-3 border-0">
+          <div className="d-flex justify-content-between align-items-center mb-3">
+            <h6 className="fw-bold mb-0 small text-uppercase text-muted">Weight Trend</h6>
+            <div className="btn-group btn-group-sm" role="group" style={{ height: '24px' }}>
+              {['1m', '3m', '1y'].map((range) => (
+                <button
+                  key={range}
+                  type="button"
+                  className={`btn btn-sm py-0 px-2 ${weightRange === range ? 'btn-primary' : 'btn-outline-secondary border-0'}`}
+                  style={{ fontSize: '0.65rem', fontWeight: 'bold' }}
+                  onClick={() => setWeightRange(range)}
+                >
+                  {range.toUpperCase()}
+                </button>
+              ))}
+            </div>
+          </div>
+
+          <div className="d-flex gap-3 mb-2 text-center border-bottom pb-2">
+            <div className="flex-fill"><span className="text-muted small text-uppercase fw-bold me-1" style={{fontSize: '0.5rem'}}>High</span><span className="fw-bold text-dark" style={{fontSize: '0.75rem'}}>{weightStats.high}</span></div>
+            <div className="flex-fill border-start border-end"><span className="text-muted small text-uppercase fw-bold me-1" style={{fontSize: '0.5rem'}}>Low</span><span className="fw-bold text-dark" style={{fontSize: '0.75rem'}}>{weightStats.low}</span></div>
+            <div className="flex-fill"><span className="text-muted small text-uppercase fw-bold me-1" style={{fontSize: '0.5rem'}}>Avg</span><span className="fw-bold text-dark" style={{fontSize: '0.75rem'}}>{weightStats.avg}</span></div>
+          </div>
+
+          <div style={{ height: '140px' }}>
+            <Line 
+              data={{
+                labels: weightTrendData.map(l => l.date.split('-').slice(1).join('/')),
+                datasets: [{ 
+                  label: 'Weight', 
+                  data: weightTrendData.map(l => l.weight), 
+                  borderColor: '#0d6efd', 
+                  backgroundColor: 'rgba(13, 110, 253, 0.1)',
+                  fill: true,
+                  tension: 0.3, 
+                  pointRadius: weightTrendData.length > 31 ? 0 : 3 
+                }]
+              }} 
+              options={{ 
+                maintainAspectRatio: false, 
+                plugins: { legend: { display: false } },
+                scales: {
+                  x: {
+                    ticks: { maxRotation: 0, autoSkip: true, maxTicksLimit: weightRange === '1y' ? 6 : 8 },
+                    grid: { display: false }
+                  },
+                  y: { grace: '5%' }
+                }
+              }} 
+            />
+          </div>
+        </div>
       </div>
     </div>
   );
