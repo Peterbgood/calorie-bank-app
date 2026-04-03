@@ -285,6 +285,18 @@
         "type": "sandwich",
         "icon": "fas fa-hamburger"
       },
+       {
+        "name": "Grilled Chicken Sandwich",
+        "calories": 390,
+        "type": "sandwich",
+        "icon": "fas fa-hamburger"
+      },
+       {
+        "name": "Mac and Cheese",
+        "calories": 450,
+        "type": "sandwich",
+        "icon": "fas fa-hamburger"
+      },
       {
         "name": "Strip",
         "calories": 410,
